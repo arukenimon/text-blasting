@@ -1,14 +1,14 @@
-import { CampaignsTable } from "./components/dashboard/campaigns-table";
+import { CampaignsTable } from "../components/dashboard/campaigns-table";
 import {
   activityItems,
   campaignItems,
   segmentItems,
   statItems,
-} from "./components/dashboard/dashboard-data";
-import { DashboardLayout } from "./components/dashboard/dashboard-layout";
-import { RightPanel } from "./components/dashboard/right-panel";
-import { StatCards } from "./components/dashboard/stat-cards";
-import { Topbar } from "./components/dashboard/topbar";
+} from "../components/dashboard/dashboard-data";
+import { DashboardLayout } from "../components/dashboard/dashboard-layout";
+import { RightPanel } from "../components/dashboard/right-panel";
+import { StatCards } from "../components/dashboard/stat-cards";
+import { Topbar } from "../components/dashboard/topbar";
 
 export default function Home() {
   return (
