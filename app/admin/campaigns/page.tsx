@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
     CalendarDays,
     MoreHorizontal,
@@ -29,6 +29,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -50,9 +51,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout } from "../../components/dashboard/dashboard-layout";
 import {
     campaignItems,
+    SegmentItem,
     segmentItems,
+    TemplateItem_,
     type CampaignStatus,
 } from "../../components/dashboard/dashboard-data";
+import { useQuery } from "@tanstack/react-query";
+import { getSegmentsOption } from "../audience/QueryOptions";
+import { getTemplatesOption } from "../templates/QueryOptions";
+import { add_campaign } from "./actions";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -117,11 +124,32 @@ const TEMPLATES = [
     "Loyalty Reward",
 ];
 
-function NewCampaignDialog() {
+function NewCampaignDialog({ segments, templates }: { segments: SegmentItem[], templates: TemplateItem_[] }) {
     const [open, setOpen] = useState(false);
+    const [formKey, setFormKey] = useState(0);
+    const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+    const [sendImmediately, setSendImmediately] = useState(false);
+
+    const [state, action, pending] = useActionState(add_campaign, undefined);
+
+    useEffect(() => {
+        if (state?.success) {
+            setOpen(false);
+        }
+    }, [state]);
+
+    function handleOpenChange(val: boolean) {
+        setOpen(val);
+        if (!val) {
+            setSelectedTemplate(null);
+            setSendImmediately(false);
+        } else {
+            setFormKey((k) => k + 1);
+        }
+    }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button size="sm">
                     <Plus />
@@ -130,85 +158,117 @@ function NewCampaignDialog() {
             </DialogTrigger>
 
             <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Create Campaign</DialogTitle>
-                    <DialogDescription>
-                        Configure your text blast. You can save as a draft or schedule for later.
-                    </DialogDescription>
-                </DialogHeader>
 
-                <form className="space-y-4 py-2">
-                    {/* Name */}
-                    <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Campaign Name</label>
-                        <Input placeholder="e.g. Spring Promo Wave 2" />
-                    </div>
+                <form key={formKey} action={action}>
 
-                    {/* Audience + Template row */}
-                    <div className="grid grid-cols-2 gap-3">
+
+
+                    <DialogHeader>
+                        <DialogTitle>Create Campaign</DialogTitle>
+                        <DialogDescription>
+                            Configure your text blast. You can save as a draft or schedule for later.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        {/* Name */}
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Audience Segment</label>
-                            <Select>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select segment" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {segmentItems.map((s) => (
-                                        <SelectItem key={s.name} value={s.name}>
-                                            {s.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <label className="text-sm font-medium">Campaign Name</label>
+                            <Input name="campaign_name" placeholder="e.g. Spring Promo Wave 2" />
+                            {state?.errors?.campaign_name && (
+                                <p className="text-xs text-destructive">{state.errors.campaign_name[0]}</p>
+                            )}
                         </div>
 
+                        {/* Audience + Template row */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Audience Segment</label>
+                                <Select name="segment_id">
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select segment" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {segments?.map((s) => (
+                                            <SelectItem key={s.name} value={s.id}>
+                                                {s.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {state?.errors?.segment_id && (
+                                    <p className="text-xs text-destructive">{state.errors.segment_id[0]}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Template</label>
+                                <Select name="template_id" onValueChange={(value) => setSelectedTemplate(value)}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select template" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {templates?.map((t) => (
+                                            <SelectItem key={t.template_name} value={t.id}>
+                                                {t.template_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {state?.errors?.template_id && (
+                                    <p className="text-xs text-destructive">{state.errors.template_id[0]}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Message */}
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Template</label>
-                            <Select>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select template" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {TEMPLATES.map((t) => (
-                                        <SelectItem key={t} value={t}>
-                                            {t}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <label className="text-sm font-medium">Message</label>
+                            <Textarea
+                                rows={4}
+                                value={selectedTemplate ? templates.find((t) => t.id === selectedTemplate)?.body : ""}
+                                placeholder="Welcome, thanks for signing up! Use code WELCOME10 for 10% off your first order."
+                                className="resize-none"
+                                readOnly
+                            />
+                            <p className="text-right text-[11px] text-muted-foreground">160 chars max</p>
+                        </div>
+
+                        {/* Schedule */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium">Schedule Date &amp; Time</label>
+                                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Checkbox
+                                        checked={sendImmediately}
+                                        onCheckedChange={(checked) => setSendImmediately(!!checked)}
+                                    />
+                                    Send immediately
+                                </label>
+                            </div>
+                            <input type="hidden" name="send_immediately" value={sendImmediately ? "true" : "false"} />
+                            <div className={`relative transition-opacity ${sendImmediately ? "pointer-events-none opacity-40" : ""}`}>
+                                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input type="datetime-local" name="schedule_time" className="pl-9" disabled={sendImmediately} />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">Leave blank to save as draft.</p>
+                            {state?.errors?.schedule_time && (
+                                <p className="text-xs text-destructive">{state.errors.schedule_time[0]}</p>
+                            )}
                         </div>
                     </div>
 
-                    {/* Message */}
-                    <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Message</label>
-                        <Textarea
-                            rows={4}
-                            placeholder="Hey {{first_name}}, …"
-                            className="resize-none"
-                        />
-                        <p className="text-right text-[11px] text-muted-foreground">160 chars max</p>
-                    </div>
-
-                    {/* Schedule */}
-                    <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Schedule Date &amp; Time</label>
-                        <div className="relative">
-                            <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input type="datetime-local" className="pl-9" />
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">Leave blank to save as draft.</p>
-                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setOpen(false)}>
+                            Save as Draft
+                        </Button>
+                        <Button type="submit">
+                            Schedule Campaign
+                        </Button>
+                    </DialogFooter>
                 </form>
 
-                <DialogFooter className="gap-2">
-                    <Button variant="outline" onClick={() => setOpen(false)}>
-                        Save as Draft
-                    </Button>
-                    <Button onClick={() => setOpen(false)}>
-                        Schedule Campaign
-                    </Button>
-                </DialogFooter>
+
             </DialogContent>
         </Dialog>
     );
@@ -258,6 +318,11 @@ export default function CampaignsPage() {
         return map;
     }, []);
 
+    const { data: segments } = useQuery(
+        getSegmentsOption()
+    )
+
+    const { data } = useQuery(getTemplatesOption());
     return (
         <DashboardLayout>
             {/* Page header */}
@@ -268,7 +333,7 @@ export default function CampaignsPage() {
                     </p>
                     <h1 className="mt-0.5 text-2xl font-semibold tracking-tight">Campaigns</h1>
                 </div>
-                <NewCampaignDialog />
+                <NewCampaignDialog segments={segments as SegmentItem[]} templates={data as TemplateItem_[]} />
             </div>
 
             <div className="mt-6 space-y-5">

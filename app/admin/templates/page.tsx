@@ -62,6 +62,7 @@ import {
 import { add_template } from "./actions";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
+import { getTemplatesOption } from "./QueryOptions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -719,17 +720,7 @@ export default function TemplatesPage() {
         "Alert",
     ];
 
-    const { data } = useQuery({
-        queryKey: ["templates"],
-        queryFn: async () => {
-            const { data, error } = await supabase.from('templates')
-                .select('*');
-            if (error) {
-                throw new Error(error.message);
-            }
-            return data;
-        }
-    })
+    const { data } = useQuery(getTemplatesOption());
 
     useEffect(() => console.log("Fetched templates:", data), [data]);
 

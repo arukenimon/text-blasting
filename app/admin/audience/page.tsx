@@ -67,6 +67,7 @@ import {
 import { add_contact, add_segment } from "./actions";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
+import { getSegmentsOption } from "./QueryOptions";
 
 // ─── Stat card data derived from contacts ────────────────────────────────────
 // function buildStats() {
@@ -509,15 +510,18 @@ export default function AudiencePage() {
     }
 
 
-    const { data: segments } = useQuery({
-        queryKey: ["get-segments"],
-        queryFn: async () => {
-            const { data, error } = await supabase.from('segments')
-                .select('*, contacts(count)'); // Get segments with count of related contacts
-            if (error) throw new Error(error.message);
-            return data;
-        }
-    })
+    const { data: segments } = useQuery(
+        getSegmentsOption()
+        //     {
+        //     queryKey: ["get-segments"],
+        //     queryFn: async () => {
+        //         const { data, error } = await supabase.from('segments')
+        //             .select('*, contacts(count)'); // Get segments with count of related contacts
+        //         if (error) throw new Error(error.message);
+        //         return data;
+        //     }
+        // }
+    )
 
 
     const { data: contacts_ } = useInfiniteQuery({
@@ -536,8 +540,6 @@ export default function AudiencePage() {
     })
 
     const contactsFlattened = useMemo(() => contacts_ ? contacts_.pages.flat() : [], [contacts_]);
-
-    useEffect(() => console.log('Fetched contacts:', contactsFlattened), [contactsFlattened]);
 
     return (
         <DashboardLayout>
