@@ -50,16 +50,20 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout } from "../../components/dashboard/dashboard-layout";
 import {
+    CampaignItem,
+    CampaignItem_,
     campaignItems,
     SegmentItem,
     segmentItems,
     TemplateItem_,
     type CampaignStatus,
 } from "../../components/dashboard/dashboard-data";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSegmentsOption } from "../audience/QueryOptions";
 import { getTemplatesOption } from "../templates/QueryOptions";
 import { add_campaign } from "./actions";
+import { getCampaignOption } from "./QueryOptions";
+import moment from "moment";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -132,9 +136,14 @@ function NewCampaignDialog({ segments, templates }: { segments: SegmentItem[], t
 
     const [state, action, pending] = useActionState(add_campaign, undefined);
 
+    const queryOptions = useQueryClient();
+    const refreshData = async () => {
+        await queryOptions.invalidateQueries({ queryKey: ["get-campaigns"] });
+    }
     useEffect(() => {
         if (state?.success) {
             setOpen(false);
+            refreshData();
         }
     }, [state]);
 
@@ -323,6 +332,35 @@ export default function CampaignsPage() {
     )
 
     const { data } = useQuery(getTemplatesOption());
+
+    const { data: campaigns_ } = useQuery(getCampaignOption());
+
+    useEffect(() => console.log("Fetched campaigns_:", campaigns_), [campaigns_]);
+
+
+    //     curl -X POST -u <username>:<password> \
+    //   -H "Content-Type: application/json" \
+    //   -d '{ "textMessage": { "text": "Hello, doctors!" }, "phoneNumbers": ["+19162255887", "+19162255888"] }' \
+    //   https://api.sms-gate.app/3rdparty/v1/message
+
+    const sendTestBlast = async () => {
+        try {
+            const response = await fetch('/api/send-sms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    textMessage: { text: "Hello, doctorsxx!" },
+                    phoneNumbers: ["+639273630590"],
+                    simNumber: 2
+                })
+            });
+            const data = await response.json();
+            console.log("Test blast response:", data);
+        } catch (error) {
+            console.error("Error sending test blast:", error);
+        }
+    }
+
     return (
         <DashboardLayout>
             {/* Page header */}
@@ -409,7 +447,7 @@ export default function CampaignsPage() {
 
                     {/* Table */}
                     <CardContent className="p-0">
-                        {filtered.length === 0 ? (
+                        {filtered.length === 0 && campaigns_?.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
                                 <Search className="size-8 opacity-30" />
                                 <p className="text-sm font-medium">No campaigns found</p>
@@ -434,7 +472,7 @@ export default function CampaignsPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filtered.map((item) => {
+                                    {filtered?.map((item) => {
                                         const cfg = statusConfig[item.status];
                                         return (
                                             <TableRow key={item.id} className="group">
@@ -502,6 +540,85 @@ export default function CampaignsPage() {
                                                                     Resume Campaign
                                                                 </DropdownMenuItem>
                                                             )}
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                                                <Trash2 className="size-3.5" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                    {campaigns_?.map((item: CampaignItem_) => {
+                                        const cfg = statusConfig['Scheduled'];
+                                        return (
+                                            <TableRow key={item.id} className="group">
+                                                <TableCell className="px-6">
+                                                    <p className="font-medium">{item.campaign_name}</p>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        Created {moment(item.created_at).format('MMM DD, YYYY')}
+                                                    </p>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="secondary" className="font-normal">
+                                                        {item.segments.name}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">
+                                                    {item.templates.template_name}
+                                                </TableCell>
+                                                <TableCell className="tabular-nums">
+                                                    {/* {item.sent > 0 ? item.sent.toLocaleString() : <span className="text-muted-foreground">—</span>} */}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {/* <DeliveryBar sent={item.sent} delivered={item.delivered} /> */}
+                                                </TableCell>
+                                                <TableCell className="tabular-nums text-muted-foreground">
+                                                    {/* {item.replies > 0 ? item.replies.toLocaleString() : "—"} */}
+                                                </TableCell>
+                                                <TableCell className="tabular-nums text-muted-foreground">
+                                                    {/* {item.optOuts > 0 ? item.optOuts.toLocaleString() : "—"} */}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant={cfg.variant} className="gap-1.5">
+                                                        <span className={`size-1.5 rounded-full ${cfg.dot}`} />
+                                                        {cfg.label}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-xs text-muted-foreground">
+                                                    {moment(item.scheduled_date).format('MMM DD, YYYY h:mm A')}
+                                                </TableCell>
+                                                <TableCell className="pr-4">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon-xs"
+                                                                className="invisible group-hover:visible"
+                                                                aria-label="Campaign actions"
+                                                            >
+                                                                <MoreHorizontal />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-44">
+                                                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={sendTestBlast}>Edit Campaign</DropdownMenuItem>
+                                                            <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            {/* {item.status === "Running" && (
+                                                                <DropdownMenuItem>
+                                                                    <Pause className="size-3.5" />
+                                                                    Pause Campaign
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            {item.status === "Paused" && (
+                                                                <DropdownMenuItem>
+                                                                    <Play className="size-3.5" />
+                                                                    Resume Campaign
+                                                                </DropdownMenuItem>
+                                                            )} */}
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem className="text-destructive focus:text-destructive">
                                                                 <Trash2 className="size-3.5" />

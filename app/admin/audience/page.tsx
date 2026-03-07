@@ -65,7 +65,7 @@ import {
     ChevronRight,
 } from "lucide-react";
 import { add_contact, add_segment } from "./actions";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { getSegmentsOption } from "./QueryOptions";
 
@@ -324,7 +324,12 @@ function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void
 
     const [state, action, pending] = useActionState(add_contact, undefined);
 
+    const queryOptions = useQueryClient();
 
+    const refreshData = async () => {
+        await queryOptions.invalidateQueries({ queryKey: ["get-contacts"] });
+        await queryOptions.invalidateQueries({ queryKey: ["get-segments"] });
+    }
 
     // Close dialog and update local list on success
     useEffect(() => {
@@ -342,6 +347,7 @@ function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void
             setPhone("");
             setSegment("");
             setOpen(false);
+            refreshData();
         }
     }, [state]);
 

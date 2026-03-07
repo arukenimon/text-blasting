@@ -28,6 +28,18 @@ export type CampaignItem = {
     createdAt: string;
 };
 
+export type CampaignItem_ = {
+    id: string;
+    campaign_name: string;
+    segment_id: string;
+    segments: SegmentItem;
+    templates: TemplateItem_;
+    template_id: string;
+    scheduled_date: string;
+    created_at: string;
+    updated_at: string;
+};
+
 export type SegmentItem = {
     id: string;
     name: string;
@@ -112,85 +124,7 @@ export const campaignItems: CampaignItem[] = [
         status: "Completed",
         scheduledAt: "Feb 28, 2026 9:00 AM",
         createdAt: "Feb 25, 2026",
-    },
-    {
-        id: "c2",
-        name: "Re-engagement Nurture",
-        audience: "Dormant Users",
-        template: "Win-Back",
-        sent: 14800,
-        delivered: 14382,
-        replies: 1620,
-        optOuts: 210,
-        status: "Running",
-        scheduledAt: "Mar 2, 2026 8:00 AM",
-        createdAt: "Feb 28, 2026",
-    },
-    {
-        id: "c3",
-        name: "New Lead Welcome",
-        audience: "New Signups",
-        template: "Welcome Series",
-        sent: 6800,
-        delivered: 6702,
-        replies: 890,
-        optOuts: 31,
-        status: "Scheduled",
-        scheduledAt: "Mar 5, 2026 10:00 AM",
-        createdAt: "Mar 1, 2026",
-    },
-    {
-        id: "c4",
-        name: "VIP Early Access",
-        audience: "VIP Segment",
-        template: "VIP Exclusive",
-        sent: 4500,
-        delivered: 4450,
-        replies: 1102,
-        optOuts: 12,
-        status: "Completed",
-        scheduledAt: "Feb 20, 2026 11:00 AM",
-        createdAt: "Feb 18, 2026",
-    },
-    {
-        id: "c5",
-        name: "Flash Sale Alert",
-        audience: "All Subscribers",
-        template: "Flash Sale",
-        sent: 0,
-        delivered: 0,
-        replies: 0,
-        optOuts: 0,
-        status: "Draft",
-        scheduledAt: "—",
-        createdAt: "Mar 2, 2026",
-    },
-    {
-        id: "c6",
-        name: "Abandoned Cart Recovery",
-        audience: "Cart Abandoners",
-        template: "Cart Recovery",
-        sent: 9200,
-        delivered: 8990,
-        replies: 740,
-        optOuts: 55,
-        status: "Paused",
-        scheduledAt: "Mar 1, 2026 2:00 PM",
-        createdAt: "Feb 27, 2026",
-    },
-    {
-        id: "c7",
-        name: "Loyalty Reward Drop",
-        audience: "Loyal Customers",
-        template: "Loyalty Reward",
-        sent: 0,
-        delivered: 0,
-        replies: 0,
-        optOuts: 0,
-        status: "Scheduled",
-        scheduledAt: "Mar 8, 2026 9:00 AM",
-        createdAt: "Mar 2, 2026",
-    },
+    }
 ];
 
 export const segmentItems: SegmentItem[] = [
