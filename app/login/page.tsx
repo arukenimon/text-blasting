@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function LoginPage() {
+function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
@@ -28,11 +28,52 @@ export default function LoginPage() {
             return;
         }
 
-        const redirectTo = searchParams.get("redirectTo") ?? "/";
+        const redirectTo = searchParams.get("redirectTo") ?? "/admin";
         router.push(redirectTo);
         router.refresh();
     }
 
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">
+                    Email
+                </label>
+                <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                />
+            </div>
+            <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium">
+                    Password
+                </label>
+                <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                />
+            </div>
+            {error && (
+                <p className="text-sm text-destructive">{error}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing in…" : "Sign in"}
+            </Button>
+        </form>
+    );
+}
+
+export default function LoginPage() {
     return (
         <div className="min-h-screen bg-muted/40 flex items-center justify-center p-4">
             <Card className="w-full max-w-sm">
@@ -41,42 +82,9 @@ export default function LoginPage() {
                     <CardDescription>Enter your credentials to access the dashboard</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <label htmlFor="email" className="text-sm font-medium">
-                                Email
-                            </label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="you@example.com"
-                                required
-                                autoComplete="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label htmlFor="password" className="text-sm font-medium">
-                                Password
-                            </label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                required
-                                autoComplete="current-password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
-                        {error && (
-                            <p className="text-sm text-destructive">{error}</p>
-                        )}
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? "Signing in…" : "Sign in"}
-                        </Button>
-                    </form>
+                    <Suspense>
+                        <LoginForm />
+                    </Suspense>
                 </CardContent>
             </Card>
         </div>
