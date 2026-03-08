@@ -5,8 +5,8 @@ const isLocal = process.env.NODE_ENV === "development";
 const LOCAL_EVENTS = ["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const;
 
 export async function POST(request: NextRequest) {
-    const username = process.env.SMS_GATEWAY_USERNAME!;
-    const password = process.env.SMS_GATEWAY_PASSWORD!;
+    const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
+    const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
     const auth = Buffer.from(`${username}:${password}`).toString("base64");
 
     const responses: Record<string, unknown> = {};
