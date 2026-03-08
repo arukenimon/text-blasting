@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     //     ? `http://${local_server.public_address}/webhooks`
     //     : `https://${cloud_server.server_address}/3rdparty/v1/webhooks`;
 
-    const apiUrl = `https://${cloud_server.server_address}/3rdparty/v1/webhooks`;
+    const apiUrl = `https://api.sms-gate.app:443/3rdparty/v1/webhooks`;
 
     const responses: Record<string, unknown> = {};
 
