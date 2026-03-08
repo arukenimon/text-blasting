@@ -24,5 +24,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: data.error || "Failed to send SMS" }, { status: response.status });
     }
 
+    await supabase.from('')
+
     return NextResponse.json(data, { status: response.status });
 }

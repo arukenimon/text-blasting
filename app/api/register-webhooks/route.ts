@@ -8,22 +8,21 @@ const EVENTS = isLocal
     : (["sms:received", "sms:data-received", "mms:received", "sms:sent", "sms:delivered", "sms:failed"] as const);
 
 export async function POST(request: NextRequest) {
-    const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
-    const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
+    const username = process.env.SMS_GATEWAY_USERNAME!;//isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
+    const password = process.env.SMS_GATEWAY_PASSWORD!;//isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
     const auth = Buffer.from(`${username}:${password}`).toString("base64");
     const webhookUrl = process.env.WEBHOOK_URL!;
 
-    // const apiUrl = isLocal
-    //     ? `${process.env.LOCAL_SERVER_URL ?? "http://192.168.1.40:8080"}/webhooks`
-    //     : "https://api.sms-gate.app/3rdparty/v1/webhooks";
+    const apiUrl = isLocal
+        ? `${process.env.LOCAL_SERVER_URL!}/webhooks`
+        : "https://api.sms-gate.app/3rdparty/v1/webhooks";
 
 
-    const apiUrl = `${process.env.LOCAL_SERVER_URL}/webhooks`;
+    // const apiUrl = `${process.env.LOCAL_SERVER_URL}/webhooks`;
 
     const responses: Record<string, unknown> = {};
 
     for (const event of EVENTS) {
-
         try {
             const body: Record<string, string> = { url: webhookUrl, event };
             // Local server requires a unique ID per webhook
