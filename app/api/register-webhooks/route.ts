@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     const responses: Record<string, unknown> = {};
 
     for (const event of EVENTS) {
+
         try {
             const body: Record<string, string> = { url: webhookUrl, event };
             // Local server requires a unique ID per webhook

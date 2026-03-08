@@ -343,7 +343,7 @@ export default function CampaignsPage() {
     //   -d '{ "textMessage": { "text": "Hello, doctors!" }, "phoneNumbers": ["+19162255887", "+19162255888"] }' \
     //   https://api.sms-gate.app/3rdparty/v1/message
 
-    const sendTestBlast = async () => {
+    const sendTestBlast = async ({ item }: { item: CampaignItem_ }) => {
         try {
             const response = await fetch('/api/send-sms', {
                 method: 'POST',
@@ -468,6 +468,7 @@ export default function CampaignsPage() {
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Opt-outs</TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Status</TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Scheduled</TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">Actions</TableHead>
                                         <TableHead />
                                     </TableRow>
                                 </TableHeader>
@@ -511,7 +512,7 @@ export default function CampaignsPage() {
                                                 <TableCell className="text-xs text-muted-foreground">
                                                     {item.scheduledAt}
                                                 </TableCell>
-                                                <TableCell className="pr-4">
+                                                <TableCell >
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button
@@ -591,6 +592,8 @@ export default function CampaignsPage() {
                                                     {moment(item.scheduled_date).format('MMM DD, YYYY h:mm A')}
                                                 </TableCell>
                                                 <TableCell className="pr-4">
+                                                    {/* Make it smaller */}
+                                                    <Button className="">Send Immediately</Button>
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button
@@ -604,7 +607,7 @@ export default function CampaignsPage() {
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end" className="w-44">
                                                             <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={sendTestBlast}>Edit Campaign</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => sendTestBlast({ item })}>Edit Campaign</DropdownMenuItem>
                                                             <DropdownMenuItem>Duplicate</DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             {/* {item.status === "Running" && (

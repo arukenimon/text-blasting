@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { createAdminClient } from "@/lib/supabase/server";
 
 function verifySignature(secretKey: string, payload: string, timestamp: string, signature: string) {
     const message = payload + timestamp;
@@ -18,12 +19,9 @@ function verifySignature(secretKey: string, payload: string, timestamp: string, 
 export async function POST(request: NextRequest) {
     const rawBody = await request.text();
 
-    console.log("[webhook] Request received:", {
-        url: request.url,
-        signature: request.headers.get('x-signature'),
-        timestamp: request.headers.get('x-timestamp'),
-        body: rawBody,
-    });
+    const bodyJson = JSON.parse(rawBody);
+
+    console.log("[webhook] Received: ", bodyJson)
 
     const signature = request.headers.get('x-signature') ?? '';
     const timestamp = request.headers.get('x-timestamp') ?? '';
@@ -42,28 +40,39 @@ export async function POST(request: NextRequest) {
 
     const { event, payload } = JSON.parse(rawBody);
 
-    console.log(`Webhook received [${event}]:`, payload);
 
+    const supabase = createAdminClient()
     switch (event) {
         case 'sms:received':
+            console.log(`[webhook] SMS received:`, payload);
+            // await supabase.from('messages')
+            //     .insert({
+
+            //     })
             // payload: { messageId, message, sender, recipient, simNumber, receivedAt }
             break;
         case 'sms:data-received':
+            console.log(`[webhook] SMS data received:`, payload);
             // payload: { messageId, data (base64), sender, recipient, simNumber, receivedAt }
             break;
         case 'mms:received':
+            console.log(`[webhook] MMS received:`, payload);
             // payload: { messageId, transactionId, subject, size, sender, recipient, simNumber, receivedAt }
             break;
         case 'sms:sent':
+            console.log(`[webhook] SMS sent:`, payload);
             // payload: { messageId, sender, recipient, simNumber, partsCount, sentAt }
             break;
         case 'sms:delivered':
+            console.log(`[webhook] SMS delivered:`, payload);
             // payload: { messageId, sender, recipient, simNumber, deliveredAt }
             break;
         case 'sms:failed':
+            console.log(`[webhook] SMS failed:`, payload);
             // payload: { messageId, sender, recipient, simNumber, reason, failedAt }
             break;
         case 'system:ping':
+            console.log(`[webhook] System ping:`, payload);
             // payload: { health }
             break;
         default:

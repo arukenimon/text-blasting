@@ -1,0 +1,61 @@
+ POST /api/send-sms 202 in 879ms (compile: 1877µs, render: 877ms)
+[webhook] Received:  {
+  deviceId: '000000002355ea2900000197064ee6c3',
+  event: 'sms:sent',
+  id: '-V8-u-KeMNPCByUotZjA0',
+  payload: {
+    sentAt: '2026-03-08T16:38:41.204+08:00',
+    messageId: 'MKKMTaZFLWklq3reSmM8e',
+    phoneNumber: '+639273630590',
+    simNumber: 2
+  },
+  webhookId: 'webhook-sms-sent'
+}
+[webhook] SMS sent: {
+  sentAt: '2026-03-08T16:38:41.204+08:00',
+  messageId: 'MKKMTaZFLWklq3reSmM8e',
+  phoneNumber: '+639273630590',
+  simNumber: 2
+}
+ POST /api/webhook 200 in 81ms (compile: 70ms, render: 11ms)
+[webhook] Received:  {
+  deviceId: '000000002355ea2900000197064ee6c3',
+  event: 'sms:received',
+  id: 'OGVzCPvnMyI85g0k4gC8k',
+  payload: {
+    message: 'Hello, doctorsxx!',
+    receivedAt: '2026-03-08T16:38:41.000+08:00',
+    messageId: '79d1db5a',
+    phoneNumber: '+639633710348',
+    simNumber: 1
+  },
+  webhookId: 'webhook-sms-received'
+}
+[webhook] SMS received: {
+  message: 'Hello, doctorsxx!',
+  receivedAt: '2026-03-08T16:38:41.000+08:00',
+  messageId: '79d1db5a',
+  phoneNumber: '+639633710348',
+  simNumber: 1
+}
+ POST /api/webhook 200 in 9ms (compile: 2ms, render: 6ms)
+[webhook] Received:  {
+  deviceId: '000000002355ea2900000197064ee6c3',
+  event: 'sms:received',
+  id: 'WwmAKgOxE9KhJ-KxgN29_',
+  payload: {
+    message: 'hey',
+    receivedAt: '2026-03-08T16:39:53.000+08:00',
+    messageId: '28549279',
+    phoneNumber: '+639273630590',
+    simNumber: 2
+  },
+  webhookId: 'webhook-sms-received'
+}
+[webhook] SMS received: {
+  message: 'hey',
+  receivedAt: '2026-03-08T16:39:53.000+08:00',
+  messageId: '28549279',
+  phoneNumber: '+639273630590',
+  simNumber: 2
+}
