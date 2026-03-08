@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
         try {
             const body: Record<string, string> = { url: webhookUrl, event };
             // Local server requires a unique ID per webhook
-            if (isLocal) body.id = `webhook-${event.replace(":", "-")}`;
+            body.id = `webhook-${event.replace(":", "-")}`;
 
             const res = await fetch(apiUrl, {
                 method: "POST",
