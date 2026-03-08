@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
 
     const username = process.env.SMS_GATEWAY_USERNAME!;
     const password = process.env.SMS_GATEWAY_PASSWORD!;
-    const auth = Buffer.from(`${username}:${password}`).toString("base64");
+    const auth = Buffer.from(`${'DJQJ6S'}:${'zxlbh1kdkxc5x-'}`).toString("base64");
 
     const response = await fetch("https://api.sms-gate.app/3rdparty/v1/message", {
         method: "POST",

@@ -13,9 +13,10 @@ export async function POST(request: NextRequest) {
     const auth = Buffer.from(`${username}:${password}`).toString("base64");
     const webhookUrl = process.env.WEBHOOK_URL!;
 
-    const apiUrl = isLocal
-        ? `${process.env.LOCAL_SERVER_URL!}/webhooks`
-        : "https://api.sms-gate.app/3rdparty/v1/webhooks";
+    const apiUrl = `${process.env.LOCAL_SERVER_URL!}/webhooks`;
+    // isLocal
+    //     ? `${process.env.LOCAL_SERVER_URL!}/webhooks`
+    //     : "https://api.sms-gate.app/3rdparty/v1/webhooks";
 
 
     // const apiUrl = `${process.env.LOCAL_SERVER_URL}/webhooks`;
