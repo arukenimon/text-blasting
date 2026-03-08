@@ -89,9 +89,6 @@ function SmsTab() {
             const response = await fetch('/api/register_webhook', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    profile
-                })
             });
 
             const data = await response.json();
