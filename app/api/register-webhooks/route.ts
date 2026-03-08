@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const isLocal = process.env.NODE_ENV === "development";
-
-// Local server only supports these 4 events; cloud supports all 6
-const EVENTS = isLocal
-    ? (["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const)
-    : (["sms:received", "sms:data-received", "mms:received", "sms:sent", "sms:delivered", "sms:failed"] as const);
+// Device local server only supports these 4 events
+const EVENTS = ["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const;
 
 export async function POST(request: NextRequest) {
     const username = process.env.SMS_GATEWAY_USERNAME!;//isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
@@ -44,7 +40,7 @@ export async function POST(request: NextRequest) {
         await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    console.log(`[register-webhooks] mode=${isLocal ? "local" : "cloud"}`, responses);
+    console.log(`[register-webhooks] mode=device`, responses);
 
     const ids = Object.fromEntries(
         Object.entries(responses)
