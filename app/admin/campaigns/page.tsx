@@ -64,6 +64,7 @@ import { getTemplatesOption } from "../templates/QueryOptions";
 import { add_campaign } from "./actions";
 import { getCampaignOption } from "./QueryOptions";
 import moment from "moment";
+import { useAuth } from "@/app/components/auth-provider";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -360,6 +361,10 @@ export default function CampaignsPage() {
             console.error("Error sending test blast:", error);
         }
     }
+
+    const { user } = useAuth();
+
+    useEffect(() => console.log('user:', user), [user]);
 
     return (
         <DashboardLayout>

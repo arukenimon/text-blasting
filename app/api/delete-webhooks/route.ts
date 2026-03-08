@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
         for (const event of LOCAL_EVENTS) {
             const id = `webhook-${event.replace(":", "-")}`;
             try {
+
+                // Local server returns 204 No Content on success, unlike the cloud which returns JSON
                 const res = await fetch(`${localServerUrl}/webhooks/${id}`, {
                     method: "DELETE",
                     headers: { "Authorization": `Basic ${auth}` },
