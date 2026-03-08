@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const isLocal = process.env.NODE_ENV === "development";
 
-const LOCAL_EVENTS = ["sms:received", "sms:sent", "sms:delivered", "sms:failed", "6852b5084f6ec"] as const;
+const LOCAL_EVENTS = ["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const;
 
 export async function POST(request: NextRequest) {
     const username = process.env.SMS_GATEWAY_USERNAME!;

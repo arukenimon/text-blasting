@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const isLocal = process.env.NODE_ENV === "development";
+
 // Device local server only supports these 4 events
-const EVENTS = ["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const;
+const EVENTS = isLocal ? ["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const :
+    ["sms:received", "sms:sent", "sms:delivered", "sms:failed",
+        "sms:data-received", "mms:received", "system:ping"] as const
 
 export async function POST(request: NextRequest) {
-    const username = process.env.SMS_GATEWAY_USERNAME!;//isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
-    const password = process.env.SMS_GATEWAY_PASSWORD!;//isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
+    const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
+    const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
     const auth = Buffer.from(`${username}:${password}`).toString("base64");
     const webhookUrl = process.env.WEBHOOK_URL!;
 
-    const apiUrl = `${process.env.LOCAL_SERVER_URL!}/webhooks`;
-    // isLocal
-    //     ? `${process.env.LOCAL_SERVER_URL!}/webhooks`
-    //     : "https://api.sms-gate.app/3rdparty/v1/webhooks";
+    // const apiUrl = `${process.env.LOCAL_SERVER_URL!}/webhooks`;
+    const apiUrl = isLocal
+        ? `${process.env.LOCAL_SERVER_URL!}/webhooks`
+        : "https://api.sms-gate.app/3rdparty/v1/webhooks";
 
 
     // const apiUrl = `${process.env.LOCAL_SERVER_URL}/webhooks`;
@@ -23,7 +27,7 @@ export async function POST(request: NextRequest) {
         try {
             const body: Record<string, string> = { url: webhookUrl, event };
             // Local server requires a unique ID per webhook
-            body.id = `webhook-${event.replace(":", "-")}`;
+            if (isLocal) body.id = `webhook-${event.replace(":", "-")}`;
 
             const res = await fetch(apiUrl, {
                 method: "POST",

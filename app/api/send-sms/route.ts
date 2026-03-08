@@ -1,12 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
+const isLocal = process.env.NODE_ENV === "development";
 export async function POST(request: NextRequest) {
     const body = await request.json();
 
-    const username = process.env.SMS_GATEWAY_USERNAME!;
-    const password = process.env.SMS_GATEWAY_PASSWORD!;
-    const auth = Buffer.from(`${'DJQJ6S'}:${'zxlbh1kdkxc5x-'}`).toString("base64");
+    const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
+    const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
+    const auth = Buffer.from(`${username}:${password}`).toString("base64");
 
     const response = await fetch("https://api.sms-gate.app/3rdparty/v1/message", {
         method: "POST",
