@@ -50,5 +50,5 @@ export async function POST(request: NextRequest) {
 
     const allSucceeded = EVENTS.every((e) => !(responses[e] as Record<string, unknown>)?.error);
 
-    return NextResponse.json({ success: allSucceeded, mode: isLocal ? "local" : "cloud", ids, responses }, { status: allSucceeded ? 200 : 207 });
+    return NextResponse.json({ success: allSucceeded, ids, responses }, { status: allSucceeded ? 200 : 207 });
 }
