@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const password = profile.cloud_server.password;
     const auth = Buffer.from(`${username}:${password}`).toString("base64");
 
-    const response = await fetch("https://api.sms-gate.app/3rdparty/v1/message", {
+    const response = await fetch("https://api.sms-gate.app:443/3rdparty/v1/message", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
