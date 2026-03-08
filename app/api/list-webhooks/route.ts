@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 const isLocal = process.env.NODE_ENV === "development";
 
 export async function GET() {
-    const username = process.env.SMS_GATEWAY_USERNAME!;
-    const password = process.env.SMS_GATEWAY_PASSWORD!;
+    const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
+    const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
     const auth = Buffer.from(`${username}:${password}`).toString("base64");
 
     const apiUrl = isLocal
