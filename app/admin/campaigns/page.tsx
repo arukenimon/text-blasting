@@ -352,7 +352,8 @@ export default function CampaignsPage() {
                 body: JSON.stringify({
                     textMessage: { text: "Hello, doctorsxx!" },
                     phoneNumbers: ["+639273630590"],
-                    simNumber: 2
+                    simNumber: 2,
+                    "withDeliveryReport": true
                 })
             });
             const data = await response.json();
