@@ -58,13 +58,14 @@ import {
     TemplateItem_,
     type CampaignStatus,
 } from "../../components/dashboard/dashboard-data";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSegmentsOption } from "../audience/QueryOptions";
 import { getTemplatesOption } from "../templates/QueryOptions";
 import { add_campaign } from "./actions";
 import { getCampaignOption } from "./QueryOptions";
 import moment from "moment";
 import { useAuth } from "@/app/components/auth-provider";
+import { supabase } from "@/lib/supabase/client";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -288,6 +289,8 @@ function NewCampaignDialog({ segments, templates }: { segments: SegmentItem[], t
 
 type TabValue = "all" | Lowercase<CampaignStatus>;
 
+
+
 export default function CampaignsPage() {
     const stats = useMemo(() => campaignStats(), []);
     const [tab, setTab] = useState<TabValue>("all");
@@ -344,24 +347,54 @@ export default function CampaignsPage() {
     //   -d '{ "textMessage": { "text": "Hello, doctors!" }, "phoneNumbers": ["+19162255887", "+19162255888"] }' \
     //   https://api.sms-gate.app/3rdparty/v1/message
 
-    const sendTestBlast = async ({ item }: { item: CampaignItem_ }) => {
-        try {
-            const response = await fetch('/api/send-sms', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    textMessage: { text: "Hello, doctorsxx!" },
-                    phoneNumbers: ["+639273630590"],
-                    simNumber: 2,
-                    "withDeliveryReport": true
-                })
-            });
-            const data = await response.json();
-            console.log("Test blast response:", data);
-        } catch (error) {
-            console.error("Error sending test blast:", error);
-        }
+    const personalizeMessage = (body: string, contact: { full_name: string }) => {
+        return body.replace(/\{\{full_name\}\}/g, contact.full_name);
     }
+
+    const queryClient = useQueryClient();
+
+    const sendTestBlast = useMutation({
+        mutationFn: async ({ item }: { item: CampaignItem_ }) => {
+            const contacts = item.segments?.contacts ?? [];
+            const body = item.templates?.body ?? "";
+            const results = await Promise.all(
+                contacts.map(async (contact) => {
+                    const personalizedText = personalizeMessage(body, contact);
+                    const response = await fetch('/api/send-sms', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            textMessage: { text: personalizedText },
+                            phoneNumbers: [`+63${contact.phone_no}`],
+                            simNumber: 2,
+                            withDeliveryReport: true,
+                            campaign_id: item.id,
+                        })
+                    });
+                    return response.json();
+                })
+            );
+            return results;
+        },
+        onSettled: async (res) => {
+            await queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+            console.log("Test blast settled:", res);
+        }
+    })
+
+    const handleDeleteCampaign = useMutation({
+        mutationFn: async (id: number) => {
+            const { data, error } = await supabase.from('campaigns').delete().eq('id', id);
+            if (error) {
+                throw new Error(error.message);
+            }
+            return data;
+        },
+        onSettled: async (res) => {
+            await queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+            console.log("Delete campaign settled:", res);
+        }
+    })
 
     const { user } = useAuth();
 
@@ -468,12 +501,13 @@ export default function CampaignsPage() {
                                         </TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Audience</TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Template</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">Sent</TableHead>
+                                        {/* <TableHead className="text-xs font-semibold uppercase tracking-wide">Sent</TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Delivery</TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Replies</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">Opt-outs</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">Status</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">Scheduled</TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">Opt-outs</TableHead> */}
+                                        {/* <TableHead className="text-xs font-semibold uppercase tracking-wide">Status</TableHead> */}
+                                        {/* <TableHead className="text-xs font-semibold uppercase tracking-wide">Scheduled</TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">Last Run</TableHead> */}
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">Actions</TableHead>
                                         <TableHead />
                                     </TableRow>
@@ -497,7 +531,7 @@ export default function CampaignsPage() {
                                                 <TableCell className="text-sm text-muted-foreground">
                                                     {item.template}
                                                 </TableCell>
-                                                <TableCell className="tabular-nums">
+                                                {/* <TableCell className="tabular-nums">
                                                     {item.sent > 0 ? item.sent.toLocaleString() : <span className="text-muted-foreground">—</span>}
                                                 </TableCell>
                                                 <TableCell>
@@ -508,16 +542,16 @@ export default function CampaignsPage() {
                                                 </TableCell>
                                                 <TableCell className="tabular-nums text-muted-foreground">
                                                     {item.optOuts > 0 ? item.optOuts.toLocaleString() : "—"}
-                                                </TableCell>
-                                                <TableCell>
+                                                </TableCell> */}
+                                                {/* <TableCell>
                                                     <Badge variant={cfg.variant} className="gap-1.5">
                                                         <span className={`size-1.5 rounded-full ${cfg.dot}`} />
                                                         {cfg.label}
                                                     </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground">
+                                                </TableCell> */}
+                                                {/* <TableCell className="text-xs text-muted-foreground">
                                                     {item.scheduledAt}
-                                                </TableCell>
+                                                </TableCell> */}
                                                 <TableCell >
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
@@ -576,30 +610,35 @@ export default function CampaignsPage() {
                                                 <TableCell className="text-sm text-muted-foreground">
                                                     {item.templates.template_name}
                                                 </TableCell>
-                                                <TableCell className="tabular-nums">
-                                                    {/* {item.sent > 0 ? item.sent.toLocaleString() : <span className="text-muted-foreground">—</span>} */}
+                                                {/* <TableCell className="tabular-nums">
+                                                    {item.sent > 0 ? item.sent.toLocaleString() : <span className="text-muted-foreground">—</span>}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {/* <DeliveryBar sent={item.sent} delivered={item.delivered} /> */}
+                                                    <DeliveryBar sent={item.sent} delivered={item.delivered} />
                                                 </TableCell>
                                                 <TableCell className="tabular-nums text-muted-foreground">
-                                                    {/* {item.replies > 0 ? item.replies.toLocaleString() : "—"} */}
+                                                    {item.replies > 0 ? item.replies.toLocaleString() : "—"}
                                                 </TableCell>
                                                 <TableCell className="tabular-nums text-muted-foreground">
-                                                    {/* {item.optOuts > 0 ? item.optOuts.toLocaleString() : "—"} */}
-                                                </TableCell>
-                                                <TableCell>
+                                                    {item.optOuts > 0 ? item.optOuts.toLocaleString() : "—"}
+                                                </TableCell> */}
+                                                {/* <TableCell>
                                                     <Badge variant={cfg.variant} className="gap-1.5">
                                                         <span className={`size-1.5 rounded-full ${cfg.dot}`} />
                                                         {cfg.label}
                                                     </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground">
+                                                </TableCell> */}
+                                                {/* <TableCell className="text-xs text-muted-foreground">
                                                     {moment(item.scheduled_date).format('MMM DD, YYYY h:mm A')}
-                                                </TableCell>
+                                                </TableCell> */}
                                                 <TableCell className="pr-4">
                                                     {/* Make it smaller */}
-                                                    <Button className="">Send Immediately</Button>
+                                                    <Button
+                                                        disabled={sendTestBlast.isPending}
+                                                        onClick={() => sendTestBlast.mutate({ item })}
+                                                    >
+                                                        {sendTestBlast.isPending ? "Sending..." : "Send Test Blast"}
+                                                    </Button>
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button
@@ -613,7 +652,7 @@ export default function CampaignsPage() {
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end" className="w-44">
                                                             <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => sendTestBlast({ item })}>Edit Campaign</DropdownMenuItem>
+                                                            <DropdownMenuItem >Edit Campaign</DropdownMenuItem>
                                                             <DropdownMenuItem>Duplicate</DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             {/* {item.status === "Running" && (
@@ -629,7 +668,9 @@ export default function CampaignsPage() {
                                                                 </DropdownMenuItem>
                                                             )} */}
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleDeleteCampaign.mutate(Number(item?.id) ?? 0)}
+                                                                className="text-destructive focus:text-destructive">
                                                                 <Trash2 className="size-3.5" />
                                                                 Delete
                                                             </DropdownMenuItem>
@@ -645,6 +686,6 @@ export default function CampaignsPage() {
                     </CardContent>
                 </Card>
             </div>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }

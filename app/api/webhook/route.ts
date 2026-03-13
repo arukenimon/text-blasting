@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
 
     const bodyJson = JSON.parse(rawBody);
 
-    console.log("[webhook] Received: ", bodyJson)
 
     const signature = request.headers.get('x-signature') ?? '';
     const timestamp = request.headers.get('x-timestamp') ?? '';

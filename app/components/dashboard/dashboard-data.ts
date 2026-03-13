@@ -44,7 +44,7 @@ export type SegmentItem = {
     id: string;
     name: string;
     //count: number;
-    contacts?: { count: number }[]; // Include count of related contacts
+    contacts?: { count: number, phone_no: number; full_name: string }[]; // Include count of related contacts
     description: string;
     //lastCampaign: string;
     createdAt: string;

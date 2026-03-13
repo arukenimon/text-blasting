@@ -7,7 +7,7 @@ export const getCampaignOption = () => queryOptions({
     queryKey: ["get-campaigns"],
     queryFn: async () => {
         const { data, error } = await supabase.from('campaigns')
-            .select('*, segments(id,name), templates(id,template_name)'); // Get campaigns with related segments and templates
+            .select('*, segments(id,name,contacts(full_name,phone_no)), templates(id,template_name,body)'); // Get campaigns with related segments and templates
         if (error) throw new Error(error.message);
         return data;
     }

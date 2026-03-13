@@ -7,9 +7,11 @@ export async function GET() {
     const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
     const auth = Buffer.from(`${username}:${password}`).toString("base64");
 
-    const apiUrl = isLocal
-        ? `${process.env.LOCAL_SERVER_URL ?? "http://192.168.1.40:8080"}/webhooks`
-        : "https://api.sms-gate.app/3rdparty/v1/webhooks";
+    // const apiUrl = isLocal
+    //     ? `${process.env.LOCAL_SERVER_URL ?? "http://192.168.1.40:8080"}/webhooks`
+    //     : "https://api.sms-gate.app/3rdparty/v1/webhooks";
+
+    const apiUrl = `https://api.sms-gate.app:443/3rdparty/v1/webhooks`;
 
     try {
         const res = await fetch(apiUrl, {
