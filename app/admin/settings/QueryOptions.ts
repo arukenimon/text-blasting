@@ -6,7 +6,7 @@ export const getProfileOption = () => queryOptions({
     queryFn: async () => {
         const { data, error } = await supabase
             .from('profile')
-            .select('local_server, cloud_server')
+            .select('local_server, cloud_server,sim_slot')
             .single()
         if (error) throw new Error(error.message)
         return data ?? null

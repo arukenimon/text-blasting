@@ -50,6 +50,7 @@ export async function update_sms_gateway(_prevState: unknown, formData: FormData
         cloud_address: formData.get('cloud_address'),
         cloud_username: formData.get('cloud_username'),
         cloud_password: formData.get('cloud_password'),
+        sim_slot: formData.get('sim_slot'),
     })
 
     if (!validated.success) {
@@ -59,7 +60,7 @@ export async function update_sms_gateway(_prevState: unknown, formData: FormData
     const userId = await getCurrentUserId()
     if (!userId) return { success: false, errors: { _: ['Not authenticated.'] } }
 
-    const { local_address, public_address, local_username, local_password, cloud_address, cloud_username, cloud_password } = validated.data
+    const { local_address, public_address, local_username, local_password, cloud_address, cloud_username, cloud_password, sim_slot } = validated.data
 
     const { error } = await supabase
         .from('profile')
@@ -68,6 +69,7 @@ export async function update_sms_gateway(_prevState: unknown, formData: FormData
                 id: userId,
                 local_server: { local_address, public_address, username: local_username, password: local_password },
                 cloud_server: { server_address: cloud_address, username: cloud_username, password: cloud_password },
+                sim_slot: Number(sim_slot),
             },
             { onConflict: 'id' }
         )

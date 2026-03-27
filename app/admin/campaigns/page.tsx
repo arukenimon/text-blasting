@@ -359,6 +359,7 @@ export default function CampaignsPage() {
 
     const queryClient = useQueryClient();
 
+    const { user,profile } = useAuth();
     const sendTestBlast = useMutation({
         mutationFn: async ({ item }: { item: CampaignItem_ }) => {
             const contacts = item.segments?.contacts ?? [];
@@ -372,9 +373,7 @@ export default function CampaignsPage() {
                         body: JSON.stringify({
                             textMessage: { text: personalizedText },
                             phoneNumbers: [`+63${contact.phone_no}`],
-                            simNumber: 2,
-                            withDeliveryReport: true,
-                            campaign_id: item.id,
+                            simNumber: profile?.sim_slot ?? 1,
                         })
                     });
                     return response.json();
@@ -402,7 +401,6 @@ export default function CampaignsPage() {
         }
     })
 
-    const { user } = useAuth();
 
     useEffect(() => console.log('user:', user), [user]);
 

@@ -115,6 +115,24 @@ function SmsTab() {
 
     return (
         <form action={action} className="space-y-4">
+            <Section title="SIM card" description="Which SIM slot should be used to send messages.">
+                <Field label="SIM slot" error={state.errors.sim_slot?.[0]}>
+                    <div className="flex gap-3">
+                        {(["1", "2"] as const).map((slot) => (
+                            <label key={slot} className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="sim_slot"
+                                    value={slot}
+                                    defaultChecked={String(profile?.sim_slot ?? 1) === slot}
+                                    className="accent-primary"
+                                />
+                                <span className="text-sm">SIM {slot}</span>
+                            </label>
+                        ))}
+                    </div>
+                </Field>
+            </Section>
             <Section title="Local server" description="Credentials shown in the SMS Gateway app's Local server section.">
                 <Field label="Local address" error={state.errors.local_address?.[0]}>
                     <Input name="local_address" placeholder="192.168.1.40:8080" defaultValue={profile?.local_server?.local_address} />
