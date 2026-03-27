@@ -99,16 +99,23 @@ export const navItems: NavItem[] = [
     { name: "Campaigns", href: "/admin/campaigns" },
     { name: "Audience", href: "/admin/audience" },
     { name: "Templates", href: "/admin/templates" },
-    { name: "Inbox", href: "/admin/inbox", badge: "12" },
-    { name: "Reports", href: "/admin/reports" },
+    { name: "Inbox", href: "#", badge: "12" },
+    { name: "Reports", href: "#" },
     { name: "Settings", href: "/admin/settings" },
 ];
 
+// export const statItems: StatItem[] = [
+//     { label: "Messages Sent", value: "84,210", trend: "+12.4%", positive: true, accentColor: "border-violet-500" },
+//     { label: "Delivery Rate", value: "97.8%", trend: "+0.8%", positive: true, accentColor: "border-emerald-500" },
+//     { label: "Reply Rate", value: "18.2%", trend: "+3.2%", positive: true, accentColor: "border-sky-500" },
+//     { label: "Opt-out Rate", value: "1.4%", trend: "-0.3%", positive: true, accentColor: "border-amber-500" },
+// ];
+
 export const statItems: StatItem[] = [
-    { label: "Messages Sent", value: "84,210", trend: "+12.4%", positive: true, accentColor: "border-violet-500" },
-    { label: "Delivery Rate", value: "97.8%", trend: "+0.8%", positive: true, accentColor: "border-emerald-500" },
-    { label: "Reply Rate", value: "18.2%", trend: "+3.2%", positive: true, accentColor: "border-sky-500" },
-    { label: "Opt-out Rate", value: "1.4%", trend: "-0.3%", positive: true, accentColor: "border-amber-500" },
+    { label: "Messages Sent", value: "0", trend: "0%", positive: true, accentColor: "border-violet-500" },
+    { label: "Delivery Rate", value: "0%", trend: "0%", positive: true, accentColor: "border-emerald-500" },
+    { label: "Reply Rate", value: "0%", trend: "0%", positive: true, accentColor: "border-sky-500" },
+    { label: "Opt-out Rate", value: "0%", trend: "0%", positive: true, accentColor: "border-amber-500" },
 ];
 
 export const campaignItems: CampaignItem[] = [

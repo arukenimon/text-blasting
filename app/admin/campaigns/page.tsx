@@ -95,11 +95,17 @@ function campaignStats() {
         ? Math.round(completed.reduce((s, c) => s + (c.delivered / c.sent) * 100, 0) / completed.length)
         : 0;
 
-    return [
+    // return [
+    //     { label: "Total Campaigns", value: String(total), sub: "all time" },
+    //     { label: "Active Now", value: String(active), sub: "running" },
+    //     { label: "Total Sent", value: totalSent.toLocaleString(), sub: "messages" },
+    //     { label: "Avg Delivery", value: `${avgDelivery}%`, sub: "delivery rate" },
+    // ];
+     return [
         { label: "Total Campaigns", value: String(total), sub: "all time" },
         { label: "Active Now", value: String(active), sub: "running" },
-        { label: "Total Sent", value: totalSent.toLocaleString(), sub: "messages" },
-        { label: "Avg Delivery", value: `${avgDelivery}%`, sub: "delivery rate" },
+        { label: "Total Sent", value: 0, sub: "messages" },
+        { label: "Avg Delivery", value: `${0}%`, sub: "delivery rate" },
     ];
 }
 
@@ -220,7 +226,7 @@ function NewCampaignDialog({ segments, templates }: { segments: SegmentItem[], t
                                     </SelectTrigger>
                                     <SelectContent>
                                         {templates?.map((t) => (
-                                            <SelectItem key={t.template_name} value={t.id}>
+                                            <SelectItem key={`${t.template_name}-${t.id}`} value={t.id}>
                                                 {t.template_name}
                                             </SelectItem>
                                         ))}
@@ -513,7 +519,7 @@ export default function CampaignsPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filtered?.map((item) => {
+                                    {/* {filtered?.map((item) => {
                                         const cfg = statusConfig[item.status];
                                         return (
                                             <TableRow key={item.id} className="group">
@@ -531,27 +537,6 @@ export default function CampaignsPage() {
                                                 <TableCell className="text-sm text-muted-foreground">
                                                     {item.template}
                                                 </TableCell>
-                                                {/* <TableCell className="tabular-nums">
-                                                    {item.sent > 0 ? item.sent.toLocaleString() : <span className="text-muted-foreground">—</span>}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <DeliveryBar sent={item.sent} delivered={item.delivered} />
-                                                </TableCell>
-                                                <TableCell className="tabular-nums text-muted-foreground">
-                                                    {item.replies > 0 ? item.replies.toLocaleString() : "—"}
-                                                </TableCell>
-                                                <TableCell className="tabular-nums text-muted-foreground">
-                                                    {item.optOuts > 0 ? item.optOuts.toLocaleString() : "—"}
-                                                </TableCell> */}
-                                                {/* <TableCell>
-                                                    <Badge variant={cfg.variant} className="gap-1.5">
-                                                        <span className={`size-1.5 rounded-full ${cfg.dot}`} />
-                                                        {cfg.label}
-                                                    </Badge>
-                                                </TableCell> */}
-                                                {/* <TableCell className="text-xs text-muted-foreground">
-                                                    {item.scheduledAt}
-                                                </TableCell> */}
                                                 <TableCell >
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
@@ -591,7 +576,7 @@ export default function CampaignsPage() {
                                                 </TableCell>
                                             </TableRow>
                                         );
-                                    })}
+                                    })} */}
                                     {campaigns_?.map((item: CampaignItem_) => {
                                         const cfg = statusConfig['Scheduled'];
                                         return (

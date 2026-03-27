@@ -58,12 +58,47 @@ export async function add_contact(_prevState: unknown, formData: FormData) {
 
     console.log('Validated fields:', validatedFields.data)
 
-    await supabase.from('segments')
-
     if (error) {
         console.error('Supabase insert error:', error)
         return { success: false as const, errors: { form: [error.message] } as Record<string, string[]> }
     }
 
     return { success: true as const, errors: {} as Record<string, string[]> }
+}
+
+export async function bulk_import_contacts(
+    contacts: { full_name: string; phone_no: string }[],
+    segment_id: string
+): Promise<{ success: boolean; count?: number; error?: string }> {
+    if (!segment_id) return { success: false, error: 'Segment is required' }
+    if (!contacts.length) return { success: false, error: 'No contacts to import' }
+
+    const rows = contacts.map((c) => ({
+        full_name: c.full_name,
+        phone_no: c.phone_no,
+        segment_id,
+        status: 'active',
+    }))
+
+    const { error } = await supabase.from('contacts').insert(rows)
+    if (error) {
+        console.error('Bulk import error:', error)
+        return { success: false, error: error.message }
+    }
+
+    return { success: true, count: contacts.length }
+}
+
+export async function delete_contacts(
+    ids: string[]
+): Promise<{ success: boolean; error?: string }> {
+    if (!ids.length) return { success: false, error: 'No contacts specified' }
+
+    const { error } = await supabase.from('contacts').delete().in('id', ids)
+    if (error) {
+        console.error('Delete contacts error:', error)
+        return { success: false, error: error.message }
+    }
+
+    return { success: true }
 }

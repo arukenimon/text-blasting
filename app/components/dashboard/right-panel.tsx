@@ -39,7 +39,7 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
     return (
         <div className="space-y-4">
             {/* Quick Send */}
-            <Card>
+            {/* <Card>
                 <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                         <div className="flex size-7 items-center justify-center rounded-md bg-violet-100">
@@ -99,10 +99,10 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
                         </div>
                     </form>
                 </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Audience Segments */}
-            <Card>
+            {/* <Card>
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base">Audience Segments</CardTitle>
@@ -130,10 +130,10 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
                         </div>
                     ))}
                 </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Recent Activity */}
-            <Card>
+            {/* <Card>
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base">Recent Activity</CardTitle>
                 </CardHeader>
@@ -158,7 +158,7 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
                         ))}
                     </ul>
                 </CardContent>
-            </Card>
+            </Card> */}
         </div>
     );
 }

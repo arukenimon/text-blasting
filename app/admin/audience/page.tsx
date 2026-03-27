@@ -64,8 +64,8 @@ import {
     UserPlus,
     ChevronRight,
 } from "lucide-react";
-import { add_contact, add_segment } from "./actions";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { add_contact, add_segment, bulk_import_contacts, delete_contacts } from "./actions";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { getSegmentsOption } from "./QueryOptions";
 
@@ -275,10 +275,76 @@ function NewSegmentDialog() {
 }
 
 // ─── Import Contacts Dialog ───────────────────────────────────────────────────
-function ImportDialog() {
+function parseCsv(text: string): { full_name: string; phone_no: string }[] {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map((h) => h.trim().toUpperCase());
+    const nameIdx = headers.indexOf("NAME");
+    const phoneIdx = headers.indexOf("PHONE");
+    if (nameIdx === -1 || phoneIdx === -1) return [];
+    return lines.slice(1).reduce<{ full_name: string; phone_no: string }[]>((acc, line) => {
+        const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+        const full_name = cols[nameIdx] ?? "";
+        const phone_no = cols[phoneIdx] ?? "";
+        if (full_name || phone_no) acc.push({ full_name, phone_no });
+        return acc;
+    }, []);
+}
+
+function ImportDialog({ segments }: { segments: SegmentItem[] }) {
     const [open, setOpen] = useState(false);
+    const [parsed, setParsed] = useState<{ full_name: string; phone_no: string }[]>([]);
+    const [segment, setSegment] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [successCount, setSuccessCount] = useState<number | null>(null);
+    const queryClient = useQueryClient();
+
+    function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+        setError(null);
+        setSuccessCount(null);
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const text = ev.target?.result as string;
+            const rows = parseCsv(text);
+            if (!rows.length) {
+                setError("No valid rows found. Ensure the CSV has NAME and PHONE columns.");
+            }
+            setParsed(rows);
+        };
+        reader.readAsText(file);
+    }
+
+    async function handleImport() {
+        if (!parsed.length || !segment) return;
+        setLoading(true);
+        setError(null);
+        const result = await bulk_import_contacts(parsed, segment);
+        setLoading(false);
+        if (!result.success) {
+            setError(result.error ?? "Import failed");
+        } else {
+            setSuccessCount(result.count ?? parsed.length);
+            await queryClient.invalidateQueries({ queryKey: ["get-contacts"] });
+            await queryClient.invalidateQueries({ queryKey: ["get-segments"] });
+            setTimeout(() => {
+                setOpen(false);
+                setParsed([]);
+                setSegment("");
+                setSuccessCount(null);
+            }, 1200);
+        }
+    }
+
+    function handleOpenChange(o: boolean) {
+        if (!o) { setParsed([]); setSegment(""); setError(null); setSuccessCount(null); }
+        setOpen(o);
+    }
+
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                     <Upload className="h-4 w-4 mr-1.5" />
@@ -289,26 +355,59 @@ function ImportDialog() {
                 <DialogHeader>
                     <DialogTitle>Import Contacts</DialogTitle>
                     <DialogDescription>
-                        Upload a CSV file with columns: Name, Phone, Segment, Tags.
+                        Upload a CSV with <strong>NAME</strong> and <strong>PHONE</strong> columns.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
+                <div className="grid gap-4 py-2">
                     <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-lg cursor-pointer bg-muted/40 hover:bg-muted/70 transition-colors">
                         <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                        <span className="text-sm font-medium">Click to upload CSV</span>
-                        <span className="text-xs text-muted-foreground mt-1">Max 50 MB · UTF-8 encoded</span>
-                        <input type="file" accept=".csv" className="hidden" />
+                        {parsed.length > 0 ? (
+                            <span className="text-sm font-medium text-emerald-600">
+                                {parsed.length} contact{parsed.length !== 1 ? "s" : ""} ready to import
+                            </span>
+                        ) : (
+                            <>
+                                <span className="text-sm font-medium">Click to upload CSV</span>
+                                <span className="text-xs text-muted-foreground mt-1">Max 50 MB · UTF-8 encoded</span>
+                            </>
+                        )}
+                        <input type="file" accept=".csv" className="hidden" onChange={handleFile} />
                     </label>
-                    <p className="text-xs text-muted-foreground mt-3">
-                        Existing contacts matched by phone number will be updated. New
-                        numbers will be appended.
-                    </p>
+                    <div className="grid gap-1.5">
+                        <label className="text-sm font-medium">Assign to Segment</label>
+                        <Select value={segment} onValueChange={setSegment}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a segment…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {segments?.map((s) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color_hex }} />
+                                            {s.name}
+                                        </span>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {error && <p className="text-xs text-red-500">{error}</p>}
+                    {successCount !== null && (
+                        <p className="text-xs text-emerald-600">
+                            Successfully imported {successCount} contact{successCount !== 1 ? "s" : ""}.
+                        </p>
+                    )}
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>
+                    <Button variant="outline" onClick={() => handleOpenChange(false)}>
                         Cancel
                     </Button>
-                    <Button onClick={() => setOpen(false)}>Start Import</Button>
+                    <Button
+                        onClick={handleImport}
+                        disabled={loading || !parsed.length || !segment}
+                    >
+                        {loading ? "Importing…" : `Import${parsed.length ? ` ${parsed.length}` : ""} Contacts`}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -506,6 +605,17 @@ export default function AudiencePage() {
 
 
 
+    const queryClient = useQueryClient();
+
+    const deleteMutation = useMutation({
+        mutationFn: (ids: string[]) => delete_contacts(ids),
+        onSuccess: () => {
+            setSelected(new Set());
+            queryClient.invalidateQueries({ queryKey: ["get-contacts"] });
+            queryClient.invalidateQueries({ queryKey: ["get-segments"] });
+        },
+    });
+
     function toggleOne(id: string) {
         setSelected((prev) => {
             const next = new Set(prev);
@@ -518,15 +628,6 @@ export default function AudiencePage() {
 
     const { data: segments } = useQuery(
         getSegmentsOption()
-        //     {
-        //     queryKey: ["get-segments"],
-        //     queryFn: async () => {
-        //         const { data, error } = await supabase.from('segments')
-        //             .select('*, contacts(count)'); // Get segments with count of related contacts
-        //         if (error) throw new Error(error.message);
-        //         return data;
-        //     }
-        // }
     )
 
 
@@ -562,7 +663,7 @@ export default function AudiencePage() {
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <ImportDialog />
+                            <ImportDialog segments={segments as SegmentItem[]} />
                             <AddContactDialog segments={segments as SegmentItem[]} onAdd={(c) => { }} />
                             <NewSegmentDialog />
                         </div>
@@ -655,8 +756,15 @@ export default function AudiencePage() {
                                                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-amber-600 border-amber-200 hover:bg-amber-50">
                                                     <UserMinus className="h-3 w-3" /> Opt Out
                                                 </Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50">
-                                                    <Trash2 className="h-3 w-3" /> Delete
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                                                    onClick={() => deleteMutation.mutate([...selected])}
+                                                    disabled={deleteMutation.isPending}
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
+                                                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
                                                 </Button>
                                             </div>
                                         </div>
