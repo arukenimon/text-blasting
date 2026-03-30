@@ -268,6 +268,7 @@ function TemplateFormDialog({
     const [open, setOpen] = useState(false);
     const [body, setBody] = useState(initial?.body ?? "");
     const isEdit = !!initial?.id;
+    const queryClient = useQueryClient();
 
     function insertVar(v: string) {
         setBody((prev) => prev + v);
@@ -281,6 +282,7 @@ function TemplateFormDialog({
 
     useEffect(() => {
         if (state?.success) {
+            queryClient.invalidateQueries({ queryKey: ["templates"] });
             setOpen(false);
         }
     }, [state]);
