@@ -61,7 +61,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSegmentsOption } from "../audience/QueryOptions";
 import { getTemplatesOption } from "../templates/QueryOptions";
-import { add_campaign } from "./actions";
+import { add_campaign, update_campaign } from "./actions";
 import { getCampaignOption } from "./QueryOptions";
 import moment from "moment";
 import { useAuth } from "@/app/components/auth-provider";
@@ -291,6 +291,168 @@ function NewCampaignDialog({ segments, templates }: { segments: SegmentItem[], t
     );
 }
 
+// ─── Edit Campaign Dialog ─────────────────────────────────────────────────────
+
+function EditCampaignDialog({
+    campaign,
+    segments,
+    templates,
+    open,
+    onOpenChange,
+}: {
+    campaign: CampaignItem_;
+    segments: SegmentItem[];
+    templates: TemplateItem_[];
+    open: boolean;
+    onOpenChange: (val: boolean) => void;
+}) {
+    const queryClient = useQueryClient();
+    const [sendImmediately, setSendImmediately] = useState(false);
+    const [selectedTemplateId, setSelectedTemplateId] = useState(campaign.template_id);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const scheduledValue = campaign.scheduled_date
+        ? new Date(campaign.scheduled_date).toISOString().slice(0, 16)
+        : "";
+
+    const { mutate, isPending } = useMutation({
+        mutationFn: (formData: FormData) => update_campaign(campaign.id, formData),
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+                onOpenChange(false);
+            } else {
+                setErrors(result.errors);
+            }
+        },
+    });
+
+    function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setErrors({});
+        mutate(new FormData(e.currentTarget));
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                <form onSubmit={handleSubmit}>
+                    <DialogHeader>
+                        <DialogTitle>Edit Campaign</DialogTitle>
+                        <DialogDescription>
+                            Update your campaign details. Changes won&apos;t affect messages already sent.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        {/* Name */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Campaign Name</label>
+                            <Input name="campaign_name" defaultValue={campaign.campaign_name} placeholder="e.g. Spring Promo Wave 2" />
+                            {errors.campaign_name && (
+                                <p className="text-xs text-destructive">{errors.campaign_name[0]}</p>
+                            )}
+                        </div>
+
+                        {/* Audience + Template row */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Audience Segment</label>
+                                <Select name="segment_id" defaultValue={campaign.segment_id}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select segment" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {segments?.map((s) => (
+                                            <SelectItem key={s.id} value={s.id}>
+                                                {s.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.segment_id && (
+                                    <p className="text-xs text-destructive">{errors.segment_id[0]}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Template</label>
+                                <Select name="template_id" defaultValue={campaign.template_id} onValueChange={setSelectedTemplateId}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select template" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {templates?.map((t) => (
+                                            <SelectItem key={t.id} value={t.id}>
+                                                {t.template_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.template_id && (
+                                    <p className="text-xs text-destructive">{errors.template_id[0]}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Message preview */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Message</label>
+                            <Textarea
+                                rows={4}
+                                value={templates.find((t) => t.id === selectedTemplateId)?.body ?? ""}
+                                className="resize-none"
+                                readOnly
+                            />
+                        </div>
+
+                        {/* Schedule */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium">Schedule Date &amp; Time</label>
+                                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Checkbox
+                                        checked={sendImmediately}
+                                        onCheckedChange={(checked) => setSendImmediately(!!checked)}
+                                    />
+                                    Send immediately
+                                </label>
+                            </div>
+                            <input type="hidden" name="send_immediately" value={sendImmediately ? "true" : "false"} />
+                            <div className={`relative transition-opacity ${sendImmediately ? "pointer-events-none opacity-40" : ""}`}>
+                                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    type="datetime-local"
+                                    name="schedule_time"
+                                    className="pl-9"
+                                    defaultValue={scheduledValue}
+                                    disabled={sendImmediately}
+                                />
+                            </div>
+                            {errors.schedule_time && (
+                                <p className="text-xs text-destructive">{errors.schedule_time[0]}</p>
+                            )}
+                        </div>
+
+                        {errors.form && (
+                            <p className="text-xs text-destructive">{errors.form[0]}</p>
+                        )}
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isPending}>
+                            {isPending ? "Saving…" : "Save Changes"}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // ─── Campaigns Page ───────────────────────────────────────────────────────────
 
 type TabValue = "all" | Lowercase<CampaignStatus>;
@@ -302,6 +464,7 @@ export default function CampaignsPage() {
     const [tab, setTab] = useState<TabValue>("all");
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState("newest");
+    const [editingCampaign, setEditingCampaign] = useState<CampaignItem_ | null>(null);
 
     const filtered = useMemo(() => {
         let items = [...campaignItems];
@@ -635,7 +798,7 @@ export default function CampaignsPage() {
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end" className="w-44">
                                                             <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                            <DropdownMenuItem >Edit Campaign</DropdownMenuItem>
+                                                            <DropdownMenuItem onSelect={() => setEditingCampaign(item)}>Edit Campaign</DropdownMenuItem>
                                                             <DropdownMenuItem>Duplicate</DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             {/* {item.status === "Running" && (
@@ -669,6 +832,16 @@ export default function CampaignsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {editingCampaign && (
+                <EditCampaignDialog
+                    campaign={editingCampaign}
+                    segments={segments as SegmentItem[]}
+                    templates={data as TemplateItem_[]}
+                    open={!!editingCampaign}
+                    onOpenChange={(val) => { if (!val) setEditingCampaign(null); }}
+                />
+            )}
         </DashboardLayout >
     );
 }

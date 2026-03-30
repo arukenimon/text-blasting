@@ -5,7 +5,6 @@ import { DashboardLayout } from "@/app/components/dashboard/dashboard-layout";
 import { Topbar } from "@/app/components/dashboard/topbar";
 import {
     templateItems,
-    type TemplateItem,
     type TemplateCategory,
     type TemplateStatus,
     TemplateItem_,
@@ -59,7 +58,7 @@ import {
     Smartphone,
     XCircle,
 } from "lucide-react";
-import { add_template, delete_template } from "./actions";
+import { add_template, delete_template, update_template } from "./actions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { getTemplatesOption } from "./QueryOptions";
@@ -263,7 +262,7 @@ function TemplateFormDialog({
     initial,
 }: {
     trigger: React.ReactNode;
-    initial?: Partial<TemplateItem>;
+    initial?: Partial<TemplateItem_>;
 }) {
     const [open, setOpen] = useState(false);
     const [body, setBody] = useState(initial?.body ?? "");
@@ -278,6 +277,7 @@ function TemplateFormDialog({
     const segments = Math.max(1, Math.ceil(charCount / MAX_SMS_CHARS));
     const remaining = segments * MAX_SMS_CHARS - charCount;
 
+    // ── Create ──
     const [state, action, pending] = useActionState(add_template, undefined);
 
     useEffect(() => {
@@ -287,12 +287,37 @@ function TemplateFormDialog({
         }
     }, [state]);
 
+    // ── Edit ──
+    const [editErrors, setEditErrors] = useState<Record<string, string[]>>({});
+    const { mutate: updateTemplate, isPending: isUpdating } = useMutation({
+        mutationFn: (formData: FormData) => update_template(initial!.id!, formData),
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["templates"] });
+                setOpen(false);
+            } else {
+                setEditErrors(result.errors);
+            }
+        },
+    });
+
+    function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        if (isEdit) {
+            e.preventDefault();
+            setEditErrors({});
+            updateTemplate(new FormData(e.currentTarget));
+        }
+    }
+
+    const errors = isEdit ? editErrors : (state?.errors ?? {});
+    const isPending = isEdit ? isUpdating : pending;
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{trigger}</DialogTrigger>
             <DialogContent className="sm:max-w-[780px] max-h-[90vh] overflow-y-auto">
 
-                <form action={action}>
+                <form action={isEdit ? undefined : action} onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>
                             {isEdit ? "Edit Template" : "New Template"}
@@ -312,12 +337,12 @@ function TemplateFormDialog({
                                     <label className="text-sm font-medium">Template Name</label>
                                     <Input
                                         placeholder="e.g. Summer Promo"
-                                        defaultValue={initial?.name}
+                                        defaultValue={initial?.template_name}
                                         name="template_name"
                                     />
-                                    {state?.errors.template_name && (
+                                    {errors.template_name && (
                                         <span className="text-red-500 text-sm">
-                                            {state.errors.template_name.join(', ')}
+                                            {errors.template_name.join(', ')}
                                         </span>
                                     )}
                                 </div>
@@ -343,9 +368,9 @@ function TemplateFormDialog({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    {state?.errors.category && (
+                                    {errors.category && (
                                         <span className="text-red-500 text-sm">
-                                            {state.errors.category.join(', ')}
+                                            {errors.category.join(', ')}
                                         </span>
                                     )}
                                 </div>
@@ -372,9 +397,9 @@ function TemplateFormDialog({
                                     name="template_body"
                                     onChange={(e) => setBody(e.target.value)}
                                 />
-                                {state?.errors.template_body && (
+                                {errors.template_body && (
                                     <span className="text-red-500 text-sm">
-                                        {state.errors.template_body.join(', ')}
+                                        {errors.template_body.join(', ')}
                                     </span>
                                 )}
                                 {/* Progress bar */}
@@ -441,7 +466,7 @@ function TemplateFormDialog({
                         <Button variant="outline" onClick={() => setOpen(false)}>
                             Cancel
                         </Button>
-                        <Button type="submit">
+                        <Button type="submit" disabled={isPending}>
                             {isEdit ? "Save Changes" : "Create Template"}
                         </Button>
                     </DialogFooter>

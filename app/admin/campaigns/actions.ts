@@ -46,3 +46,41 @@ export async function add_campaign(_prevState: unknown, formData: FormData) {
 
     return { success: true as const, errors: {} as Record<string, string[]> }
 }
+
+export async function update_campaign(id: string, formData: FormData) {
+    const supabase = createAdminClient()
+
+    const validatedFields = CreateCampaignSchema.safeParse({
+        campaign_name: formData.get('campaign_name'),
+        segment_id: formData.get('segment_id'),
+        template_id: formData.get('template_id'),
+        send_immediately: formData.get('send_immediately') ?? undefined,
+        schedule_time: formData.get('schedule_time') ?? undefined,
+    })
+
+    if (!validatedFields.success) {
+        return {
+            success: false as const,
+            errors: validatedFields.error.flatten().fieldErrors as Record<string, string[]>,
+        }
+    }
+
+    const { error } = await supabase.from('campaigns').update({
+        campaign_name: validatedFields.data.campaign_name,
+        segment_id: validatedFields.data.segment_id,
+        template_id: validatedFields.data.template_id,
+        scheduled_date: validatedFields.data.send_immediately === 'true'
+            ? new Date()
+            : new Date(validatedFields.data.schedule_time!),
+    }).eq('id', id)
+
+    if (error) {
+        console.error('Error updating campaign:', error)
+        return {
+            success: false as const,
+            errors: { form: ['An error occurred while updating the campaign. Please try again.'] },
+        }
+    }
+
+    return { success: true as const, errors: {} as Record<string, string[]> }
+}

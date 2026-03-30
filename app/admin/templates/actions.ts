@@ -43,6 +43,39 @@ export async function add_template(_prevState: unknown, formData: FormData) {
     return { success: true as const, errors: {} as Record<string, string[]> }
 }
 
+export async function update_template(id: string, formData: FormData) {
+    const supabase = createAdminClient()
+
+    const validatedFields = CreateTemplateSchema.safeParse({
+        template_name: formData.get('template_name'),
+        template_body: formData.get('template_body'),
+        category: formData.get('category'),
+    })
+
+    if (!validatedFields.success) {
+        return {
+            success: false as const,
+            errors: validatedFields.error.flatten().fieldErrors as Record<string, string[]>,
+        }
+    }
+
+    const { error } = await supabase.from('templates').update({
+        template_name: validatedFields.data.template_name,
+        body: validatedFields.data.template_body,
+        category: validatedFields.data.category,
+    }).eq('id', id)
+
+    if (error) {
+        console.error('Error updating template:', error)
+        return {
+            success: false as const,
+            errors: { form: ['An error occurred while updating the template. Please try again.'] },
+        }
+    }
+
+    return { success: true as const, errors: {} as Record<string, string[]> }
+}
+
 export async function delete_template(id: string) {
     const supabase = createAdminClient()
 
