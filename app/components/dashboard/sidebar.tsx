@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { NavItem } from "./dashboard-data";
+import { useAuth } from "../auth-provider";
 
 const navIcons: Record<string, React.ElementType> = {
     Overview: LayoutDashboard,
@@ -34,7 +35,7 @@ type SidebarProps = {
 
 export function Sidebar({ items }: SidebarProps) {
     const pathname = usePathname();
-
+    const { user, profile, signOut } = useAuth();
     return (
         <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
             {/* Brand */}
@@ -105,10 +106,10 @@ export function Sidebar({ items }: SidebarProps) {
                     <AvatarFallback className="bg-violet-100 text-violet-700 text-xs font-semibold">JD</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">Jane Doe</p>
+                    <p className="truncate text-sm font-medium">{user?.email}</p>
                     <p className="truncate text-[11px] text-muted-foreground">Admin</p>
                 </div>
-                <Button variant="ghost" size="icon-sm" aria-label="Log out">
+                <Button variant="ghost" size="icon-sm" aria-label="Log out" onClick={signOut}>
                     <LogOut className="size-4" />
                 </Button>
             </div>

@@ -59,8 +59,8 @@ import {
     Smartphone,
     XCircle,
 } from "lucide-react";
-import { add_template } from "./actions";
-import { useQuery } from "@tanstack/react-query";
+import { add_template, delete_template } from "./actions";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { getTemplatesOption } from "./QueryOptions";
 
@@ -452,7 +452,7 @@ function TemplateFormDialog({
 }
 
 // ─── Template Card (grid view) ────────────────────────────────────────────────
-function TemplateCard({ item }: { item: TemplateItem_ }) {
+function TemplateCard({ item, onDelete }: { item: TemplateItem_; onDelete: (id: string) => void }) {
     const StatusIcon = STATUS_CONFIG['Approved'].icon;
     return (
         <Card className="group flex flex-col hover:shadow-md transition-shadow">
@@ -508,7 +508,7 @@ function TemplateCard({ item }: { item: TemplateItem_ }) {
                                 Use in Campaign
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
+                            <DropdownMenuItem className="text-red-600" onClick={() => onDelete(item.id)}>
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete
                             </DropdownMenuItem>
@@ -565,7 +565,7 @@ function TemplateCard({ item }: { item: TemplateItem_ }) {
 }
 
 // ─── Template Row (list view) ─────────────────────────────────────────────────
-function TemplateRow({ item }: { item: TemplateItem_ }) {
+function TemplateRow({ item, onDelete }: { item: TemplateItem_; onDelete: (id: string) => void }) {
     const StatusIcon = STATUS_CONFIG['Approved'].icon;
     return (
         <div className="group grid grid-cols-[1fr_130px_110px_90px_90px_40px] items-center gap-4 px-5 py-3.5 border-b last:border-0 hover:bg-muted/40 transition-colors text-sm">
@@ -621,7 +621,7 @@ function TemplateRow({ item }: { item: TemplateItem_ }) {
                         Use in Campaign
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-red-600">
+                    <DropdownMenuItem className="text-red-600" onClick={() => onDelete(item.id)}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                     </DropdownMenuItem>
@@ -720,7 +720,15 @@ export default function TemplatesPage() {
         "Alert",
     ];
 
+    const queryClient = useQueryClient();
     const { data } = useQuery(getTemplatesOption());
+
+    const { mutate: deleteTemplate } = useMutation({
+        mutationFn: (id: string) => delete_template(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["templates"] });
+        },
+    });
 
     useEffect(() => console.log("Fetched templates:", data), [data]);
 
@@ -874,7 +882,7 @@ export default function TemplatesPage() {
                     ) : viewMode === "grid" ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                             {data?.map((t) => (
-                                <TemplateCard key={t.id} item={t} />
+                                <TemplateCard key={t.id} item={t} onDelete={deleteTemplate} />
                             ))}
                         </div>
                     ) : (
@@ -889,7 +897,7 @@ export default function TemplatesPage() {
                                 <span />
                             </div>
                             {data?.map((t) => (
-                                <TemplateRow key={t.id} item={t} />
+                                <TemplateRow key={t.id} item={t} onDelete={deleteTemplate} />
                             ))}
                         </Card>
                     )}

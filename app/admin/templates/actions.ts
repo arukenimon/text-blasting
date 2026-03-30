@@ -42,3 +42,16 @@ export async function add_template(_prevState: unknown, formData: FormData) {
 
     return { success: true as const, errors: {} as Record<string, string[]> }
 }
+
+export async function delete_template(id: string) {
+    const supabase = createAdminClient()
+
+    const { error } = await supabase.from('templates').delete().eq('id', id)
+
+    if (error) {
+        console.error('Error deleting template:', error)
+        return { success: false as const, error: error.message }
+    }
+
+    return { success: true as const }
+}
