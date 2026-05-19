@@ -1,48 +1,92 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
-const isLocal = process.env.NODE_ENV === "development";
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
+import {
+    GatewayNotConfiguredError,
+    SmsGatewayError,
+    getGatewayClientForUser,
+} from '@/lib/sms-gateway'
+
+export const runtime = 'nodejs'
+
+/**
+ * Ad-hoc single-message send. Used for one-off / debug sends; campaigns go
+ * through /api/campaigns/[id]/send instead.
+ *
+ * Expected body: { textMessage: { text }, phoneNumbers: string[], simNumber?: number }
+ */
 export async function POST(request: NextRequest) {
-    const body = await request.json();
+    const session = await createClient()
+    const { data: { user } } = await session.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-
-    const sessionClient = await createClient();
-    const { data: { user } } = await sessionClient.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-
-    // Fetch credentials from DB scoped to the current user
-    const adminClient = createAdminClient();
-    const { data: profile, error: profileError } = await adminClient
-        .from('profile')
-        .select('local_server, cloud_server')
-        .eq('id', user.id)
-        .single();
-
-    if (profileError || !profile) {
-        return NextResponse.json({ error: 'Profile not found. Please save your SMS gateway credentials first.' }, { status: 400 });
+    let body: { textMessage?: { text?: string }; phoneNumbers?: string[]; simNumber?: number }
+    try {
+        body = await request.json()
+    } catch {
+        return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
-    // const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
-    // const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
+    const text = body.textMessage?.text?.trim()
+    const phoneNumbers = (body.phoneNumbers ?? []).filter(Boolean)
+    if (!text) return NextResponse.json({ error: 'textMessage.text is required' }, { status: 400 })
+    if (phoneNumbers.length === 0) return NextResponse.json({ error: 'phoneNumbers is required' }, { status: 400 })
 
-    const username = profile.cloud_server.username;
-    const password = profile.cloud_server.password;
-    const auth = Buffer.from(`${username}:${password}`).toString("base64");
-
-    const response = await fetch("https://api.sms-gate.app:443/3rdparty/v1/message", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Basic ${auth}`,
-        },
-        body: JSON.stringify(body),
-    });
-
-    const supabase = createAdminClient()
-    const data = await response.json();
-
-    if (!response.ok) {
-        return NextResponse.json({ error: data.error || "Failed to send SMS" }, { status: response.status });
+    let gateway, profile
+    try {
+        ({ client: gateway, profile } = await getGatewayClientForUser(user.id))
+    } catch (err) {
+        if (err instanceof GatewayNotConfiguredError) {
+            return NextResponse.json({ error: err.message }, { status: 400 })
+        }
+        throw err
     }
 
-    return NextResponse.json(data, { status: response.status });
+    const simNumber = body.simNumber ?? profile.sim_slot ?? 1
+    const admin = createAdminClient()
+
+    // Insert pending rows up-front so the UI sees them immediately.
+    const pendingRows = phoneNumbers.map((phone) => ({
+        user_id: user.id,
+        direction: 'outbound' as const,
+        phone_no: phone,
+        body: text,
+        status: 'pending' as const,
+        sim_slot: simNumber,
+    }))
+    const { data: inserted, error: insertErr } = await admin
+        .from('messages')
+        .insert(pendingRows)
+        .select('id')
+    if (insertErr) {
+        return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    }
+
+    const insertedIds = (inserted ?? []).map((r) => r.id)
+
+    try {
+        const resp = await gateway.sendMessage({
+            textMessage: { text },
+            phoneNumbers,
+            simNumber,
+        })
+        await admin
+            .from('messages')
+            .update({ status: 'queued', gateway_message_id: resp.id })
+            .in('id', insertedIds)
+        return NextResponse.json({ ok: true, gateway: resp, message_ids: insertedIds })
+    } catch (err) {
+        const message =
+            err instanceof SmsGatewayError ? err.message :
+            err instanceof Error ? err.message : 'Gateway send failed'
+        await admin
+            .from('messages')
+            .update({
+                status: 'failed',
+                failed_at: new Date().toISOString(),
+                error_reason: message,
+            })
+            .in('id', insertedIds)
+        const status = err instanceof SmsGatewayError ? err.status : 502
+        return NextResponse.json({ error: message }, { status })
+    }
 }

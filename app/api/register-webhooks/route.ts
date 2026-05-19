@@ -1,58 +1,74 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
+import {
+    ALL_WEBHOOK_EVENTS,
+    GatewayNotConfiguredError,
+    LOCAL_SUPPORTED_EVENTS,
+    buildWebhookUrl,
+    getGatewayClientForUser,
+    sleep,
+} from '@/lib/sms-gateway'
 
-const isLocal = process.env.NODE_ENV === "development";
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
-// Device local server only supports these 4 events
-const EVENTS = isLocal ? ["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const :
-    ["sms:received", "sms:sent", "sms:delivered", "sms:failed",
-        "sms:data-received", "mms:received", "system:ping"] as const
-
+/**
+ * Register webhooks for the authenticated user.
+ * Workflow:
+ *  1. Load this user's gateway client + profile (mode/credentials/token).
+ *  2. Delete every existing webhook on the gateway to avoid orphans.
+ *  3. Register the relevant events pointed at /api/webhooks/{token}.
+ *  4. Persist the returned IDs onto profile.webhook_registrations.
+ */
 export async function POST(request: NextRequest) {
-    const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
-    const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
-    const auth = Buffer.from(`${username}:${password}`).toString("base64");
-    const webhookUrl = process.env.WEBHOOK_URL!;
+    const session = await createClient()
+    const { data: { user } } = await session.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-    // const apiUrl = `${process.env.LOCAL_SERVER_URL!}/webhooks`;
-    const apiUrl = isLocal
-        ? `${process.env.LOCAL_SERVER_URL!}/webhooks`
-        : "https://api.sms-gate.app/3rdparty/v1/webhooks";
-
-
-    // const apiUrl = `${process.env.LOCAL_SERVER_URL}/webhooks`;
-
-    const responses: Record<string, unknown> = {};
-
-    for (const event of EVENTS) {
-        try {
-            const body: Record<string, string> = { url: webhookUrl, event };
-            // Local server requires a unique ID per webhook
-            body.id = `webhook-${event.replace(":", "-")}`;
-
-            const res = await fetch(apiUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Basic ${auth}`,
-                },
-                body: JSON.stringify(body),
-            });
-            responses[event] = await res.json();
-        } catch (err: unknown) {
-            responses[event] = { error: err instanceof Error ? err.message : "fetch failed" };
+    let gateway, profile
+    try {
+        ({ client: gateway, profile } = await getGatewayClientForUser(user.id))
+    } catch (err) {
+        if (err instanceof GatewayNotConfiguredError) {
+            return NextResponse.json({ error: err.message }, { status: 400 })
         }
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        throw err
     }
 
-    console.log(`[register-webhooks] mode=device`, responses);
+    const origin = request.headers.get('origin') ?? request.nextUrl.origin
+    const webhookUrl = buildWebhookUrl(
+        process.env.WEBHOOK_BASE_URL ?? origin,
+        profile.webhook_token
+    )
 
-    const ids = Object.fromEntries(
-        Object.entries(responses)
-            .filter(([, v]) => (v as Record<string, unknown>)?.id)
-            .map(([event, v]) => [event, (v as Record<string, unknown>).id])
-    );
+    const events = profile.mode === 'local' ? LOCAL_SUPPORTED_EVENTS : ALL_WEBHOOK_EVENTS
 
-    const allSucceeded = EVENTS.every((e) => !(responses[e] as Record<string, unknown>)?.error);
+    // Clear stale registrations to avoid orphan webhooks on the gateway side
+    await gateway.clearAllWebhooks().catch(() => 0)
 
-    return NextResponse.json({ success: allSucceeded, ids, responses }, { status: allSucceeded ? 200 : 207 });
+    const registrations: Record<string, string> = {}
+    const failures: Record<string, string> = {}
+    for (const event of events) {
+        try {
+            const reg = await gateway.registerWebhook(webhookUrl, event, {
+                id: `${profile.user_id.slice(0, 8)}-${event.replace(':', '-')}`,
+            })
+            registrations[event] = reg.id
+        } catch (err) {
+            failures[event] = err instanceof Error ? err.message : 'register failed'
+        }
+        await sleep(200)
+    }
+
+    const admin = createAdminClient()
+    await admin
+        .from('profile')
+        .update({ webhook_registrations: registrations })
+        .eq('id', user.id)
+
+    const allOk = Object.keys(failures).length === 0
+    return NextResponse.json(
+        { success: allOk, mode: profile.mode, webhook_url: webhookUrl, registrations, failures },
+        { status: allOk ? 200 : 207 }
+    )
 }

@@ -1,69 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { GatewayNotConfiguredError, getGatewayClientForUser } from '@/lib/sms-gateway'
 
-const isLocal = process.env.NODE_ENV === "development";
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
-const LOCAL_EVENTS = ["sms:received", "sms:sent", "sms:delivered", "sms:failed"] as const;
+export async function POST() {
+    const session = await createClient()
+    const { data: { user } } = await session.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-export async function POST(request: NextRequest) {
-    const username = isLocal ? process.env.LOCAL_API_USERNAME : process.env.SMS_GATEWAY_USERNAME;
-    const password = isLocal ? process.env.LOCAL_API_PASSWORD : process.env.SMS_GATEWAY_PASSWORD;
-    const auth = Buffer.from(`${username}:${password}`).toString("base64");
-
-    const responses: Record<string, unknown> = {};
-
-    if (isLocal) {
-        // Local: IDs are derived from event names (matches what register-webhooks sets)
-        const localServerUrl = process.env.LOCAL_SERVER_URL ?? "http://192.168.1.40:8080";
-
-        for (const event of LOCAL_EVENTS) {
-            const id = `webhook-${event.replace(":", "-")}`;
-            try {
-
-                // Local server returns 204 No Content on success, unlike the cloud which returns JSON
-                const res = await fetch(`${localServerUrl}/webhooks/${id}`, {
-                    method: "DELETE",
-                    headers: { "Authorization": `Basic ${auth}` },
-                });
-                responses[id] = res.status === 204 ? { success: true } : await res.json();
-            } catch (err: unknown) {
-                responses[id] = { error: err instanceof Error ? err.message : "fetch failed" };
-            }
-            await new Promise((resolve) => setTimeout(resolve, 300));
+    let gateway
+    try {
+        ({ client: gateway } = await getGatewayClientForUser(user.id))
+    } catch (err) {
+        if (err instanceof GatewayNotConfiguredError) {
+            return NextResponse.json({ error: err.message }, { status: 400 })
         }
-    } else {
-        // Cloud: fetch the registered webhooks list first, then delete each one
-        try {
-            const listRes = await fetch("https://api.sms-gate.app/3rdparty/v1/webhooks", {
-                headers: { "Authorization": `Basic ${auth}` },
-            });
-            const webhooks: { id: string }[] = await listRes.json();
-
-            for (const { id } of webhooks) {
-                try {
-                    const res = await fetch(`https://api.sms-gate.app/3rdparty/v1/webhooks/${id}`, {
-                        method: "DELETE",
-                        headers: { "Authorization": `Basic ${auth}` },
-                    });
-                    responses[id] = res.status === 204 ? { success: true } : await res.json();
-                } catch (err: unknown) {
-                    responses[id] = { error: err instanceof Error ? err.message : "fetch failed" };
-                }
-                await new Promise((resolve) => setTimeout(resolve, 300));
-            }
-        } catch (err: unknown) {
-            return NextResponse.json(
-                { error: err instanceof Error ? err.message : "failed to list webhooks" },
-                { status: 500 }
-            );
-        }
+        throw err
     }
 
-    console.log(`[delete-webhooks] mode=${isLocal ? "local" : "cloud"}`, responses);
+    const deleted = await gateway.clearAllWebhooks().catch(() => 0)
 
-    const allSucceeded = Object.values(responses).every((v) => !(v as Record<string, unknown>)?.error);
+    const admin = createAdminClient()
+    await admin.from('profile').update({ webhook_registrations: {} }).eq('id', user.id)
 
-    return NextResponse.json(
-        { success: allSucceeded, mode: isLocal ? "local" : "cloud", responses },
-        { status: allSucceeded ? 200 : 207 }
-    );
+    return NextResponse.json({ success: true, deleted })
 }

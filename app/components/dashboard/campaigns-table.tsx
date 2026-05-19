@@ -10,10 +10,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import type { CampaignItem, CampaignStatus } from "./dashboard-data";
+import type { CampaignItem_, CampaignStatus } from "./dashboard-data";
 
 type CampaignsTableProps = {
-    items: CampaignItem[];
+    items: CampaignItem_[];
 };
 
 const statusConfig: Record<
@@ -27,18 +27,6 @@ const statusConfig: Record<
     Paused: { variant: "secondary", dot: "bg-orange-400" },
 };
 
-function DeliveryBar({ sent, delivered }: { sent: number; delivered: number }) {
-    const pct = Math.round((delivered / sent) * 100);
-    return (
-        <div className="flex items-center gap-2">
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
-            </div>
-            <span className="tabular-nums text-xs text-muted-foreground">{pct}%</span>
-        </div>
-    );
-}
-
 export function CampaignsTable({ items }: CampaignsTableProps) {
     return (
         <Card className="gap-0 py-0">
@@ -48,7 +36,7 @@ export function CampaignsTable({ items }: CampaignsTableProps) {
                     <p className="text-xs text-muted-foreground">{items.length} campaigns</p>
                 </div>
                 <Button variant="ghost" size="sm" asChild>
-                    <a href="#">
+                    <a href="/admin/campaigns">
                         View all <ArrowRight />
                     </a>
                 </Button>
@@ -60,42 +48,30 @@ export function CampaignsTable({ items }: CampaignsTableProps) {
                         <TableRow className="bg-muted/40">
                             <TableHead className="px-6 text-xs font-semibold uppercase tracking-wide">Campaign</TableHead>
                             <TableHead className="text-xs font-semibold uppercase tracking-wide">Audience</TableHead>
-                            <TableHead className="text-xs font-semibold uppercase tracking-wide">Sent</TableHead>
-                            <TableHead className="text-xs font-semibold uppercase tracking-wide">Delivery</TableHead>
                             <TableHead className="text-xs font-semibold uppercase tracking-wide">Status</TableHead>
                             <TableHead />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {items.map((item) => {
-                            const cfg = statusConfig[item.status];
+                            const cfg = statusConfig[item.status ?? "Draft"];
                             return (
                                 <TableRow key={item.id} className="group">
-                                    <TableCell className="px-6 font-medium">{item.name}</TableCell>
+                                    <TableCell className="px-6 font-medium">{item.campaign_name}</TableCell>
                                     <TableCell>
                                         <Badge variant="secondary" className="font-normal">
-                                            {item.audience}
+                                            {item.segments?.name ?? "—"}
                                         </Badge>
-                                    </TableCell>
-                                    <TableCell className="tabular-nums text-muted-foreground">
-                                        {item.sent.toLocaleString()}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DeliveryBar sent={item.sent} delivered={item.delivered} />
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={cfg.variant} className="gap-1.5">
                                             <span className={`size-1.5 rounded-full ${cfg.dot}`} />
-                                            {item.status}
+                                            {item.status ?? "Draft"}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="pr-4">
-                                        <Button
-                                            variant="outline"
-                                            size="xs"
-                                            className="invisible group-hover:visible"
-                                        >
-                                            View
+                                        <Button variant="outline" size="xs" asChild>
+                                            <a href={`/admin/campaigns`}>View</a>
                                         </Button>
                                     </TableCell>
                                 </TableRow>

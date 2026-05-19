@@ -4,7 +4,6 @@ import { useState, useMemo, useActionState, useEffect } from "react";
 import { DashboardLayout } from "@/app/components/dashboard/dashboard-layout";
 import { Topbar } from "@/app/components/dashboard/topbar";
 import {
-    segmentItems,
     type SegmentItem,
     type ContactStatus,
     type ContactItem,
@@ -533,11 +532,13 @@ function MoveToSegmentDialog({
     onOpenChange,
     count,
     onMove,
+    segments,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     count: number;
     onMove: (segmentName: string) => void;
+    segments: SegmentItem[];
 }) {
     const [target, setTarget] = useState("");
 
@@ -565,7 +566,7 @@ function MoveToSegmentDialog({
                             <SelectValue placeholder="Select target segment…" />
                         </SelectTrigger>
                         <SelectContent>
-                            {segmentItems.map((s) => (
+                            {segments.map((s) => (
                                 <SelectItem key={s.id} value={s.name}>
                                     <span className="flex items-center gap-2">
                                         <span className={`w-2 h-2 rounded-full`} style={{ backgroundColor: s.color_hex }} />
@@ -850,8 +851,8 @@ export default function AudiencePage() {
                                         <TableBody>
                                             {contactsFlattened.map((contact) => {
                                                 const segColor =
-                                                    segmentItems.find(
-                                                        (s) => s.id === contact.segment_id
+                                                    (segments ?? []).find(
+                                                        (s: SegmentItem) => s.id === contact.segment_id
                                                     )?.color_hex ?? "#d1d5db";
                                                 return (
                                                     <TableRow
@@ -962,7 +963,7 @@ export default function AudiencePage() {
                                     Showing {contactsFlattened.length} of {contactsFlattened.length} contacts
                                     {activeSegmentId && (
                                         <> in <span className="font-medium">
-                                            {segmentItems.find((s) => s.id === activeSegmentId)?.name}
+                                            {(segments ?? []).find((s: SegmentItem) => s.id === activeSegmentId)?.name}
                                         </span></>
                                     )}
                                 </div>
@@ -977,12 +978,9 @@ export default function AudiencePage() {
                 open={moveDialogIds !== null}
                 onOpenChange={(o) => { if (!o) setMoveDialogIds(null); }}
                 count={moveDialogIds?.length ?? 0}
-                onMove={(segName) => {
+                segments={(segments as SegmentItem[]) ?? []}
+                onMove={() => {
                     if (!moveDialogIds) return;
-                    const ids = new Set(moveDialogIds);
-                    // setContacts((prev) =>
-                    //     prev.map((c) => ids.has(c.id) ? { ...c, segment: segName } : c)
-                    // );
                     setSelected((prev) => {
                         const next = new Set(prev);
                         moveDialogIds.forEach((id) => next.delete(id));

@@ -4,7 +4,6 @@ import { useState, useMemo, useActionState, useEffect } from "react";
 import { DashboardLayout } from "@/app/components/dashboard/dashboard-layout";
 import { Topbar } from "@/app/components/dashboard/topbar";
 import {
-    templateItems,
     type TemplateCategory,
     type TemplateStatus,
     TemplateItem_,
@@ -666,73 +665,73 @@ export default function TemplatesPage() {
     const [sortBy, setSortBy] = useState("name");
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+    const queryClient = useQueryClient();
+    const { data } = useQuery(getTemplatesOption());
+    const templates: TemplateItem_[] = data ?? [];
+
     const filtered = useMemo(() => {
-        let list = [...templateItems];
+        let list = [...templates];
 
         if (categoryFilter !== "all") {
             list = list.filter((t) => t.category === categoryFilter);
-        }
-        if (statusFilter !== "all") {
-            list = list.filter((t) => t.status === statusFilter);
         }
         if (search.trim()) {
             const q = search.trim().toLowerCase();
             list = list.filter(
                 (t) =>
-                    t.name.toLowerCase().includes(q) ||
+                    t.template_name.toLowerCase().includes(q) ||
                     t.body.toLowerCase().includes(q) ||
                     t.category.toLowerCase().includes(q)
             );
         }
 
         list.sort((a, b) => {
-            if (sortBy === "name") return a.name.localeCompare(b.name);
-            if (sortBy === "newest") return b.createdAt.localeCompare(a.createdAt);
-            if (sortBy === "usage") return b.usedIn - a.usedIn;
+            if (sortBy === "name") return a.template_name.localeCompare(b.template_name);
+            if (sortBy === "newest") return (b.created_at ?? "").localeCompare(a.created_at ?? "");
             if (sortBy === "length") return b.body.length - a.body.length;
             return 0;
         });
 
         return list;
-    }, [categoryFilter, statusFilter, search, sortBy]);
+    }, [templates, categoryFilter, search, sortBy]);
 
     const categoryCounts = useMemo(() => {
-        const counts: Record<string, number> = { all: templateItems.length };
-        for (const t of templateItems) {
+        const counts: Record<string, number> = { all: templates.length };
+        for (const t of templates) {
             counts[t.category] = (counts[t.category] ?? 0) + 1;
         }
         return counts;
-    }, []);
+    }, [templates]);
 
     const stats = [
         {
             label: "Total Templates",
-            value: templateItems.length.toString(),
+            value: templates.length.toString(),
             sub: "Across all categories",
             icon: FileText,
             color: "text-blue-500",
             accent: "border-l-blue-500",
         },
         {
-            label: "Approved",
-            value: templateItems.filter((t) => t.status === "Approved").length.toString(),
-            sub: "Ready to send",
+            label: "Promotional",
+            value: templates.filter((t) => t.category === "Promotional").length.toString(),
+            sub: "Marketing-style",
             icon: CheckCircle2,
             color: "text-emerald-500",
             accent: "border-l-emerald-500",
         },
         {
-            label: "Pending Review",
-            value: templateItems.filter((t) => t.status === "Pending").length.toString(),
-            sub: "Awaiting approval",
+            label: "Transactional",
+            value: templates.filter((t) => t.category === "Transactional").length.toString(),
+            sub: "Order / status",
             icon: Clock,
             color: "text-amber-500",
             accent: "border-l-amber-500",
         },
         {
-            label: "Campaigns Using",
-            value: templateItems.reduce((acc, t) => acc + t.usedIn, 0).toString(),
-            sub: "Total campaign references",
+            label: "Total Body Length",
+            value: templates.reduce((acc, t) => acc + (t.body?.length ?? 0), 0).toString(),
+            sub: "Characters",
             icon: BarChart2,
             color: "text-violet-500",
             accent: "border-l-violet-500",
@@ -747,17 +746,12 @@ export default function TemplatesPage() {
         "Alert",
     ];
 
-    const queryClient = useQueryClient();
-    const { data } = useQuery(getTemplatesOption());
-
     const { mutate: deleteTemplate } = useMutation({
         mutationFn: (id: string) => delete_template(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["templates"] });
         },
     });
-
-    useEffect(() => console.log("Fetched templates:", data), [data]);
 
     return (
         <DashboardLayout>
@@ -908,7 +902,7 @@ export default function TemplatesPage() {
                         </div>
                     ) : viewMode === "grid" ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {data?.map((t) => (
+                            {filtered.map((t) => (
                                 <TemplateCard key={t.id} item={t} onDelete={deleteTemplate} />
                             ))}
                         </div>
@@ -923,16 +917,16 @@ export default function TemplatesPage() {
                                 <span>Campaigns</span>
                                 <span />
                             </div>
-                            {data?.map((t) => (
+                            {filtered.map((t) => (
                                 <TemplateRow key={t.id} item={t} onDelete={deleteTemplate} />
                             ))}
                         </Card>
                     )}
 
                     {/* Footer count */}
-                    {data && data?.length > 0 && (
+                    {filtered.length > 0 && (
                         <p className="text-xs text-muted-foreground pb-2">
-                            Showing {data.length} of {templateItems.length} templates
+                            Showing {filtered.length} of {templates.length} templates
                         </p>
                     )}
                 </div>
