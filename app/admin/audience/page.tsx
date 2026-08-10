@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useActionState, useEffect } from "react";
+import { useState, useMemo, useActionState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/app/components/dashboard/dashboard-layout";
 import { Topbar } from "@/app/components/dashboard/topbar";
 import {
@@ -64,9 +64,10 @@ import {
     ChevronRight,
 } from "lucide-react";
 import { add_contact, add_segment, bulk_import_contacts, delete_contacts } from "./actions";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase/client";
-import { getSegmentsOption } from "./QueryOptions";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getContactsOption, getSegmentsOption } from "./QueryOptions";
+
+const NEW_SEGMENT_VALUE = "__new_segment__";
 
 // ─── Stat card data derived from contacts ────────────────────────────────────
 // function buildStats() {
@@ -181,7 +182,8 @@ function NewSegmentDialog() {
     // Close dialog and update local list on success
     useEffect(() => {
         if (segmentState?.success) {
-            setOpen(false);
+            const timer = window.setTimeout(() => setOpen(false), 0);
+            return () => window.clearTimeout(timer);
         }
     }, [segmentState]);
 
@@ -419,14 +421,30 @@ function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
     const [segment, setSegment] = useState("");
+    const [newSegmentName, setNewSegmentName] = useState("");
+    const [newSegmentDescription, setNewSegmentDescription] = useState("");
+    const [newSegmentColor, setNewSegmentColor] = useState("#6366f1");
 
     const [state, action, pending] = useActionState(add_contact, undefined);
 
-    const queryOptions = useQueryClient();
+    const queryClient = useQueryClient();
+    const isCreatingSegment = segment === NEW_SEGMENT_VALUE;
+    const canSubmit =
+        Boolean(name.trim() && phone.trim() && segment) &&
+        (!isCreatingSegment || newSegmentName.trim().length >= 2);
 
-    const refreshData = async () => {
-        await queryOptions.invalidateQueries({ queryKey: ["get-contacts"] });
-        await queryOptions.invalidateQueries({ queryKey: ["get-segments"] });
+    const resetForm = useCallback(() => {
+        setName("");
+        setPhone("");
+        setSegment("");
+        setNewSegmentName("");
+        setNewSegmentDescription("");
+        setNewSegmentColor("#6366f1");
+    }, []);
+
+    function handleOpenChange(nextOpen: boolean) {
+        setOpen(nextOpen);
+        if (!nextOpen) resetForm();
     }
 
     // Close dialog and update local list on success
@@ -441,16 +459,18 @@ function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void
             //     joinedAt: "Mar 4, 2026",
             //     tags: [],
             // });
-            setName("");
-            setPhone("");
-            setSegment("");
-            setOpen(false);
-            refreshData();
+            const timer = window.setTimeout(() => {
+                resetForm();
+                setOpen(false);
+                queryClient.invalidateQueries({ queryKey: ["get-contacts"] });
+                queryClient.invalidateQueries({ queryKey: ["get-segments"] });
+            }, 0);
+            return () => window.clearTimeout(timer);
         }
-    }, [state]);
+    }, [state, queryClient, resetForm]);
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
                     <UserPlus className="h-4 w-4 mr-1.5" />
@@ -491,12 +511,28 @@ function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void
                             )}
                         </div>
                         <div className="grid gap-1.5">
-                            <label className="text-sm font-medium">Segment</label>
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm font-medium">Segment</label>
+                                <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80"
+                                    onClick={() => setSegment(NEW_SEGMENT_VALUE)}
+                                >
+                                    <Plus className="size-3" />
+                                    New segment
+                                </button>
+                            </div>
                             <Select name="segment" value={segment} onValueChange={setSegment}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Assign to a segment…" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value={NEW_SEGMENT_VALUE}>
+                                        <span className="flex items-center gap-2 font-medium text-primary">
+                                            <Plus className="size-3.5" />
+                                            Create new segment
+                                        </span>
+                                    </SelectItem>
                                     {segments?.map((s) => (
                                         <SelectItem key={s.id} value={s.id}>
                                             {s.name}
@@ -504,18 +540,72 @@ function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {isCreatingSegment && (
+                                <div className="mt-2 grid gap-3 rounded-md border bg-muted/30 p-3">
+                                    <div className="grid gap-1.5">
+                                        <label className="text-xs font-medium">New Segment Name</label>
+                                        <Input
+                                            name="new_segment_name"
+                                            value={newSegmentName}
+                                            onChange={(e) => setNewSegmentName(e.target.value)}
+                                            placeholder="e.g. VIP Customers"
+                                        />
+                                    </div>
+                                    <div className="grid gap-1.5">
+                                        <label className="text-xs font-medium">Description</label>
+                                        <Input
+                                            name="new_segment_description"
+                                            value={newSegmentDescription}
+                                            onChange={(e) => setNewSegmentDescription(e.target.value)}
+                                            placeholder="Optional note for this audience"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <label className="text-xs font-medium">Color</label>
+                                        <label className="relative cursor-pointer">
+                                            <span
+                                                className="block size-7 rounded-full border-2 border-border shadow-sm"
+                                                style={{ backgroundColor: newSegmentColor }}
+                                            />
+                                            <input
+                                                type="color"
+                                                value={newSegmentColor}
+                                                onChange={(e) => setNewSegmentColor(e.target.value)}
+                                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                            />
+                                        </label>
+                                        <Input
+                                            value={newSegmentColor}
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setNewSegmentColor(v);
+                                            }}
+                                            className="h-8 w-28 font-mono text-xs"
+                                            maxLength={7}
+                                            spellCheck={false}
+                                        />
+                                        <input type="hidden" name="new_segment_color" value={newSegmentColor} />
+                                    </div>
+                                </div>
+                            )}
                             {state?.errors?.segment && (
                                 <p className="text-xs text-red-500">{state.errors.segment[0]}</p>
+                            )}
+                            {state?.errors?.new_segment_name && (
+                                <p className="text-xs text-red-500">{state.errors.new_segment_name[0]}</p>
+                            )}
+                            {state?.errors?.form && (
+                                <p className="text-xs text-red-500">{state.errors.form[0]}</p>
                             )}
                         </div>
                     </div>
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                             Cancel
                         </Button>
                         <Button
                             type="submit"
-                            disabled={pending || !name.trim() || !phone.trim() || !segment}
+                            disabled={pending || !canSubmit}
                         >
                             {pending ? "Adding…" : "Add Contact"}
                         </Button>
@@ -631,39 +721,47 @@ export default function AudiencePage() {
         getSegmentsOption()
     )
 
+    const {
+        data: contacts = [],
+        isLoading: contactsLoading,
+        error: contactsError,
+    } = useQuery(getContactsOption())
 
-    const { data: contacts_ } = useInfiniteQuery({
-        queryKey: ["get-contacts"],
-        queryFn: async () => {
-            const { data, error } = await supabase.from('contacts')
-                .select('*,segments(name)'); // Get contacts with related segments
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        initialPageParam: 0,
-        getNextPageParam: (lastPage, allPages) => {
-            if (lastPage.length === 20) return allPages.length; // Assuming page size of 20
-            return undefined;
+    const contactsFlattened = useMemo(() => {
+        let visible = [...contacts];
+        if (activeSegmentId) {
+            visible = visible.filter((contact) => contact.segment_id === activeSegmentId);
         }
-    })
-
-    const contactsFlattened = useMemo(() => contacts_ ? contacts_.pages.flat() : [], [contacts_]);
+        if (search.trim()) {
+            const q = search.trim().toLowerCase();
+            visible = visible.filter(
+                (contact) =>
+                    contact.full_name?.toLowerCase().includes(q) ||
+                    String(contact.phone_no ?? "").includes(q)
+            );
+        }
+        if (sortBy === "name") {
+            visible.sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
+        }
+        if (sortBy === "joined") {
+            visible.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+        }
+        return visible;
+    }, [activeSegmentId, contacts, search, sortBy]);
 
     return (
         <DashboardLayout>
             <div className="flex flex-col flex-1 min-w-0">
                 <Topbar />
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="mt-6 space-y-6">
 
                     {/* ── Page header ────────────────────────────── */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight">Audience</h1>
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                                Manage contacts and segments across your subscriber base.
-                            </p>
+                            <p className="text-sm font-semibold">Audience operations</p>
+                            <p className="text-xs text-muted-foreground">Import, add, or segment contacts before launching a campaign.</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <ImportDialog segments={segments as SegmentItem[]} />
                             <AddContactDialog segments={segments as SegmentItem[]} onAdd={(c) => { }} />
                             <NewSegmentDialog />
@@ -735,7 +833,7 @@ export default function AudiencePage() {
 
                                     {/* Bulk action bar */}
                                     {selected.size > 0 && (
-                                        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/8 border border-primary/20 text-sm">
+                                        <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/[0.08] px-3 py-2 text-sm">
                                             <span className="font-medium text-primary">
                                                 {selected.size} selected
                                             </span>
@@ -820,7 +918,20 @@ export default function AudiencePage() {
                             </CardHeader>
 
                             <CardContent className="p-0">
-                                {contactsFlattened.length === 0 ? (
+                                {contactsLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                                        <Users className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                                        <p className="text-sm font-medium text-muted-foreground">Loading contacts...</p>
+                                    </div>
+                                ) : contactsError ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                                        <Users className="h-10 w-10 text-destructive/40 mb-3" />
+                                        <p className="text-sm font-medium text-destructive">Could not load contacts</p>
+                                        <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                                            {contactsError instanceof Error ? contactsError.message : "Please refresh and try again."}
+                                        </p>
+                                    </div>
+                                ) : contactsFlattened.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-16 text-center">
                                         <Users className="h-10 w-10 text-muted-foreground/40 mb-3" />
                                         <p className="text-sm font-medium text-muted-foreground">No contacts found</p>
@@ -867,7 +978,7 @@ export default function AudiencePage() {
                                                             <Checkbox
                                                                 checked={selected.has(contact.id)}
                                                                 onCheckedChange={() => toggleOne(contact.id)}
-                                                                aria-label={`Select ${contact.name}`}
+                                                                aria-label={`Select ${contact.full_name ?? "contact"}`}
                                                             />
                                                         </TableCell>
                                                         <TableCell>
@@ -876,7 +987,10 @@ export default function AudiencePage() {
                                                         </TableCell>
                                                         <TableCell>
                                                             <span className="flex items-center gap-1.5 text-sm">
-                                                                <span className={`w-2 h-2 rounded-full shrink-0 ${segColor}`} />
+                                                                <span
+                                                                    className="size-2 shrink-0 rounded-full"
+                                                                    style={{ backgroundColor: segColor }}
+                                                                />
                                                                 {contact.segments.name || "—"}
                                                             </span>
                                                         </TableCell>

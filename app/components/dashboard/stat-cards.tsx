@@ -9,6 +9,13 @@ const iconMap: Record<string, React.ElementType> = {
     "Opt-out Rate": UserMinus,
 };
 
+const accentMap: Record<string, string> = {
+    "Messages Sent": "bg-primary/10 text-primary",
+    "Delivery Rate": "bg-emerald-500/10 text-emerald-700",
+    "Reply Rate": "bg-sky-500/10 text-sky-700",
+    "Opt-out Rate": "bg-amber-500/12 text-amber-700",
+};
+
 type StatCardsProps = {
     items: StatItem[];
 };
@@ -19,29 +26,28 @@ export function StatCards({ items }: StatCardsProps) {
             {items.map((item) => {
                 const Icon = iconMap[item.label] ?? Send;
                 const TrendIcon = item.positive ? TrendingUp : TrendingDown;
+
                 return (
-                    <Card key={item.label} className={`gap-3 border-l-4 py-5 ${item.accentColor}`}>
-                        <CardContent className="px-5">
+                    <Card key={item.label} className="overflow-hidden py-0">
+                        <CardContent className="p-5">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                                         {item.label}
                                     </p>
-                                    <p className="mt-2 text-2xl font-bold tracking-tight tabular-nums">{item.value}</p>
+                                    <p className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                                        {item.value}
+                                    </p>
                                 </div>
-                                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                                    <Icon className="size-4 text-muted-foreground" />
+                                <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${accentMap[item.label] ?? "bg-muted text-muted-foreground"}`}>
+                                    <Icon className="size-4" />
                                 </div>
                             </div>
-                            <div className="mt-3 flex items-center gap-1.5">
+                            <div className="mt-5 flex items-center gap-1.5 border-t pt-3">
                                 <TrendIcon
-                                    className={`size-3.5 shrink-0 ${item.positive ? "text-emerald-500" : "text-destructive"
-                                        }`}
+                                    className={`size-3.5 shrink-0 ${item.positive ? "text-emerald-600" : "text-destructive"}`}
                                 />
-                                <p
-                                    className={`text-xs font-semibold ${item.positive ? "text-emerald-600" : "text-destructive"
-                                        }`}
-                                >
+                                <p className={`text-xs font-semibold ${item.positive ? "text-emerald-700" : "text-destructive"}`}>
                                     {item.trend}
                                 </p>
                                 <p className="text-xs text-muted-foreground">vs last week</p>

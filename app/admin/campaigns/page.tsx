@@ -3,13 +3,13 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import {
     CalendarDays,
+    Clock,
+    MessageSquareText,
     MoreHorizontal,
-    Pause,
-    Play,
-    Plus,
     Search,
     Send,
     Trash2,
+    Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,9 +76,20 @@ const statusConfig: Record<
     Paused: { variant: "secondary", dot: "bg-orange-400", label: "Paused" },
 };
 
-function DeliveryBar({ sent, delivered }: { sent: number; delivered: number }) {
-    if (sent === 0) return <span className="text-xs text-muted-foreground">—</span>;
-    const pct = Math.round((delivered / sent) * 100);
+const SMS_SEGMENT_LENGTH = 160;
+
+function getContactCount(segment?: SegmentItem) {
+    const count = segment?.contacts?.[0]?.count;
+    return typeof count === "number" ? count : 0;
+}
+
+function formatCount(value: number) {
+    return value > 0 ? value.toLocaleString() : "—";
+}
+
+function DeliveryBar({ total, delivered }: { total: number; delivered: number }) {
+    if (total === 0) return <span className="text-xs text-muted-foreground">—</span>;
+    const pct = Math.round((delivered / total) * 100);
     return (
         <div className="flex items-center gap-2">
             <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
@@ -98,24 +109,52 @@ function NewCampaignDialog({
 }) {
     const [open, setOpen] = useState(false);
     const [formKey, setFormKey] = useState(0);
-    const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-    const [sendImmediately, setSendImmediately] = useState(false);
+    const [selectedSegmentId, setSelectedSegmentId] = useState("");
+    const [selectedTemplateId, setSelectedTemplateId] = useState("");
+    const [messageMode, setMessageMode] = useState<"template" | "custom">("template");
+    const [customMessage, setCustomMessage] = useState("");
+    const [sendImmediately, setSendImmediately] = useState(true);
+    const [scheduleTime, setScheduleTime] = useState("");
     const [state, action, pending] = useActionState(add_campaign, undefined);
     const queryClient = useQueryClient();
+
+    const selectedSegment = segments.find((s) => s.id === selectedSegmentId);
+    const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+    const messageBody = messageMode === "template" ? selectedTemplate?.body ?? "" : customMessage;
+    const contactCount = getContactCount(selectedSegment);
+    const smsParts = Math.max(1, Math.ceil(messageBody.length / SMS_SEGMENT_LENGTH));
+    const hasMessage = messageBody.trim().length > 0;
+    const canSubmit = Boolean(
+        selectedSegmentId &&
+        hasMessage &&
+        (messageMode === "custom" || selectedTemplateId) &&
+        (sendImmediately || scheduleTime)
+    );
+    const campaignName =
+        messageMode === "template" && selectedTemplate && selectedSegment
+            ? `${selectedTemplate.template_name} to ${selectedSegment.name} - ${moment().format("MMM D, h:mm A")}`
+            : selectedSegment
+                ? `Custom message to ${selectedSegment.name} - ${moment().format("MMM D, h:mm A")}`
+                : `Text blast - ${moment().format("MMM D, h:mm A")}`;
 
     useEffect(() => {
         if (state?.success) {
             queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
             queryClient.invalidateQueries({ queryKey: ["campaign-stats"] });
-            setOpen(false);
+            const timer = window.setTimeout(() => setOpen(false), 0);
+            return () => window.clearTimeout(timer);
         }
     }, [state, queryClient]);
 
     function handleOpenChange(val: boolean) {
         setOpen(val);
         if (!val) {
-            setSelectedTemplate(null);
-            setSendImmediately(false);
+            setSelectedSegmentId("");
+            setSelectedTemplateId("");
+            setMessageMode("template");
+            setCustomMessage("");
+            setSendImmediately(true);
+            setScheduleTime("");
         } else {
             setFormKey((k) => k + 1);
         }
@@ -125,32 +164,31 @@ function NewCampaignDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button size="sm">
-                    <Plus />
-                    New Campaign
+                    <Send />
+                    Send Message
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-2xl">
                 <form key={formKey} action={action}>
                     <DialogHeader>
-                        <DialogTitle>Create Campaign</DialogTitle>
+                        <DialogTitle>Send Message</DialogTitle>
                         <DialogDescription>
-                            Configure your text blast. You can save as a draft or schedule for later.
+                            Choose an audience, then use a template or type a message directly.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Campaign Name</label>
-                            <Input name="campaign_name" placeholder="e.g. Spring Promo Wave 2" />
-                            {state?.errors?.campaign_name && (
-                                <p className="text-xs text-destructive">{state.errors.campaign_name[0]}</p>
-                            )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-4 py-3">
+                        <input type="hidden" name="campaign_name" value={campaignName} />
+                        <input type="hidden" name="message_mode" value={messageMode} />
+                        <input type="hidden" name="message_body" value={messageBody} />
+                        <div className="grid gap-3 md:grid-cols-2">
                             <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Audience Segment</label>
-                                <Select name="segment_id">
+                                <label className="flex items-center gap-2 text-sm font-medium">
+                                    <Users className="size-4 text-muted-foreground" />
+                                    Audience
+                                </label>
+                                <Select name="segment_id" value={selectedSegmentId} onValueChange={setSelectedSegmentId}>
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select segment" />
+                                        <SelectValue placeholder="Choose audience" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {segments?.map((s) => (
@@ -165,13 +203,30 @@ function NewCampaignDialog({
                                 )}
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Template</label>
+                                <label className="flex items-center gap-2 text-sm font-medium">
+                                    <MessageSquareText className="size-4 text-muted-foreground" />
+                                    Message
+                                </label>
+                                <Tabs
+                                    value={messageMode}
+                                    onValueChange={(value) => setMessageMode(value as "template" | "custom")}
+                                >
+                                    <TabsList className="grid h-9 w-full grid-cols-2">
+                                        <TabsTrigger value="template">Template</TabsTrigger>
+                                        <TabsTrigger value="custom">Custom</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </div>
+                        </div>
+                        {messageMode === "template" && (
+                            <div className="space-y-1.5">
                                 <Select
                                     name="template_id"
-                                    onValueChange={(value) => setSelectedTemplate(value)}
+                                    value={selectedTemplateId}
+                                    onValueChange={setSelectedTemplateId}
                                 >
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select template" />
+                                        <SelectValue placeholder="Choose template" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {templates?.map((t) => (
@@ -185,51 +240,86 @@ function NewCampaignDialog({
                                     <p className="text-xs text-destructive">{state.errors.template_id[0]}</p>
                                 )}
                             </div>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Message</label>
+                        )}
+                        <div className="rounded-md border bg-muted/30 p-3">
                             <Textarea
-                                rows={4}
-                                value={
-                                    selectedTemplate
-                                        ? templates.find((t) => t.id === selectedTemplate)?.body
-                                        : ""
+                                rows={5}
+                                value={messageBody}
+                                onChange={(e) => setCustomMessage(e.target.value)}
+                                placeholder={
+                                    messageMode === "template"
+                                        ? "Pick a template to preview the message."
+                                        : "Type the message you want to send."
                                 }
-                                placeholder="Pick a template to preview the message body."
-                                className="resize-none"
-                                readOnly
+                                className="resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                                readOnly={messageMode === "template"}
                             />
-                            <p className="text-right text-[11px] text-muted-foreground">160 chars per SMS segment</p>
-                        </div>
-                        <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium">Schedule Date &amp; Time</label>
-                                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                    <Checkbox
-                                        checked={sendImmediately}
-                                        onCheckedChange={(checked) => setSendImmediately(!!checked)}
-                                    />
-                                    Send immediately
-                                </label>
+                            {state?.errors?.message_body && (
+                                <p className="mt-2 text-xs text-destructive">{state.errors.message_body[0]}</p>
+                            )}
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                <Badge variant="secondary" className="font-normal">
+                                    {contactCount.toLocaleString()} contacts
+                                </Badge>
+                                <Badge variant="outline" className="font-normal">
+                                    {messageBody.length} chars
+                                </Badge>
+                                <Badge variant="outline" className="font-normal">
+                                    {smsParts} SMS part{smsParts === 1 ? "" : "s"}
+                                </Badge>
                             </div>
+                        </div>
+                        <div className="space-y-3">
+                            <label className="text-sm font-medium">Delivery</label>
                             <input
                                 type="hidden"
                                 name="send_immediately"
                                 value={sendImmediately ? "true" : "false"}
                             />
-                            <div
-                                className={`relative transition-opacity ${
-                                    sendImmediately ? "pointer-events-none opacity-40" : ""
-                                }`}
-                            >
-                                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    type="datetime-local"
-                                    name="schedule_time"
-                                    className="pl-9"
-                                    disabled={sendImmediately}
-                                />
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    className={`flex items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                                        sendImmediately
+                                            ? "border-primary bg-primary/5 text-primary"
+                                            : "bg-background hover:bg-muted/50"
+                                    }`}
+                                    onClick={() => setSendImmediately(true)}
+                                >
+                                    <Send className="size-4" />
+                                    <span>
+                                        <span className="block text-sm font-medium">Send now</span>
+                                        <span className="block text-xs text-muted-foreground">Start delivery right away</span>
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`flex items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                                        !sendImmediately
+                                            ? "border-primary bg-primary/5 text-primary"
+                                            : "bg-background hover:bg-muted/50"
+                                    }`}
+                                    onClick={() => setSendImmediately(false)}
+                                >
+                                    <Clock className="size-4" />
+                                    <span>
+                                        <span className="block text-sm font-medium">Schedule</span>
+                                        <span className="block text-xs text-muted-foreground">Pick a later date and time</span>
+                                    </span>
+                                </button>
                             </div>
+                            {!sendImmediately && (
+                                <div className="relative">
+                                    <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        type="datetime-local"
+                                        name="schedule_time"
+                                        value={scheduleTime}
+                                        onChange={(e) => setScheduleTime(e.target.value)}
+                                        className="pl-9"
+                                    />
+                                </div>
+                            )}
                             {state?.errors?.schedule_time && (
                                 <p className="text-xs text-destructive">{state.errors.schedule_time[0]}</p>
                             )}
@@ -242,8 +332,8 @@ function NewCampaignDialog({
                         <Button variant="outline" type="button" onClick={() => setOpen(false)}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={pending}>
-                            {pending ? "Saving…" : sendImmediately ? "Send Now" : "Schedule Campaign"}
+                        <Button type="submit" disabled={pending || !canSubmit}>
+                            {pending ? "Saving..." : sendImmediately ? "Send Now" : "Schedule"}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -267,8 +357,15 @@ function EditCampaignDialog({
 }) {
     const queryClient = useQueryClient();
     const [sendImmediately, setSendImmediately] = useState(false);
-    const [selectedTemplateId, setSelectedTemplateId] = useState(campaign.template_id);
+    const [messageMode, setMessageMode] = useState<"template" | "custom">(
+        campaign.message_body ? "custom" : "template"
+    );
+    const [selectedTemplateId, setSelectedTemplateId] = useState(campaign.template_id ?? "");
+    const [customMessage, setCustomMessage] = useState(campaign.message_body ?? "");
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const messageBody = messageMode === "template"
+        ? templates.find((t) => t.id === selectedTemplateId)?.body ?? ""
+        : customMessage;
 
     const scheduledValue = campaign.scheduled_date
         ? new Date(campaign.scheduled_date).toISOString().slice(0, 16)
@@ -303,6 +400,8 @@ function EditCampaignDialog({
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
+                        <input type="hidden" name="message_mode" value={messageMode} />
+                        <input type="hidden" name="message_body" value={messageBody} />
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium">Campaign Name</label>
                             <Input
@@ -314,7 +413,7 @@ function EditCampaignDialog({
                                 <p className="text-xs text-destructive">{errors.campaign_name[0]}</p>
                             )}
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium">Audience Segment</label>
                                 <Select name="segment_id" defaultValue={campaign.segment_id}>
@@ -334,10 +433,24 @@ function EditCampaignDialog({
                                 )}
                             </div>
                             <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Message</label>
+                                <Tabs
+                                    value={messageMode}
+                                    onValueChange={(value) => setMessageMode(value as "template" | "custom")}
+                                >
+                                    <TabsList className="grid h-9 w-full grid-cols-2">
+                                        <TabsTrigger value="template">Template</TabsTrigger>
+                                        <TabsTrigger value="custom">Custom</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </div>
+                        </div>
+                        {messageMode === "template" && (
+                            <div className="space-y-1.5">
                                 <label className="text-sm font-medium">Template</label>
                                 <Select
                                     name="template_id"
-                                    defaultValue={campaign.template_id}
+                                    value={selectedTemplateId}
                                     onValueChange={setSelectedTemplateId}
                                 >
                                     <SelectTrigger className="w-full">
@@ -355,15 +468,24 @@ function EditCampaignDialog({
                                     <p className="text-xs text-destructive">{errors.template_id[0]}</p>
                                 )}
                             </div>
-                        </div>
+                        )}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium">Message</label>
                             <Textarea
                                 rows={4}
-                                value={templates.find((t) => t.id === selectedTemplateId)?.body ?? ""}
+                                value={messageBody}
+                                onChange={(e) => setCustomMessage(e.target.value)}
+                                placeholder={
+                                    messageMode === "template"
+                                        ? "Select a template to preview the message."
+                                        : "Type the message you want to send."
+                                }
                                 className="resize-none"
-                                readOnly
+                                readOnly={messageMode === "template"}
                             />
+                            {errors.message_body && (
+                                <p className="text-xs text-destructive">{errors.message_body[0]}</p>
+                            )}
                         </div>
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
@@ -424,39 +546,41 @@ export default function CampaignsPage() {
     const [editingCampaign, setEditingCampaign] = useState<CampaignItem_ | null>(null);
     const queryClient = useQueryClient();
 
-    useMessagesRealtime(); // live update for any campaign change
+    useMessagesRealtime(); // live update for campaign delivery stats
 
     const { data: segments } = useQuery(getSegmentsOption());
     const { data: templatesData } = useQuery(getTemplatesOption());
     const { data: campaigns } = useQuery(getCampaignOption());
     const { data: stats } = useQuery(getCampaignStatsOption());
 
-    const statsMap = stats ?? {};
+    const statsMap = useMemo(() => stats ?? {}, [stats]);
     const totalsByStatus = useMemo(() => {
-        const acc = { total: 0, running: 0, sent: 0, delivered: 0 };
+        const acc = { total: 0, running: 0, attempted: 0, inProgress: 0, delivered: 0, failed: 0 };
         (campaigns ?? []).forEach((c: CampaignItem_) => {
             acc.total += 1;
             if (c.status === "Running") acc.running += 1;
             const s = statsMap[c.id];
             if (s) {
-                acc.sent += s.sent + s.delivered;
+                acc.attempted += s.total;
+                acc.inProgress += s.pending + s.queued + s.sent;
                 acc.delivered += s.delivered;
+                acc.failed += s.failed;
             }
         });
         return acc;
     }, [campaigns, statsMap]);
-    const avgDelivery = totalsByStatus.sent
-        ? Math.round((totalsByStatus.delivered / totalsByStatus.sent) * 100)
+    const avgDelivery = totalsByStatus.attempted
+        ? Math.round((totalsByStatus.delivered / totalsByStatus.attempted) * 100)
         : 0;
     const summaryStats = [
         { label: "Total Campaigns", value: String(totalsByStatus.total), sub: "all time" },
-        { label: "Active Now", value: String(totalsByStatus.running), sub: "running" },
+        { label: "Recipients", value: totalsByStatus.attempted.toLocaleString(), sub: "tracked messages" },
         {
-            label: "Total Sent",
-            value: totalsByStatus.sent.toLocaleString(),
-            sub: "messages",
+            label: "Delivered",
+            value: totalsByStatus.delivered.toLocaleString(),
+            sub: `${avgDelivery}% delivery rate`,
         },
-        { label: "Avg Delivery", value: `${avgDelivery}%`, sub: "delivery rate" },
+        { label: "In Progress", value: totalsByStatus.inProgress.toLocaleString(), sub: `${totalsByStatus.failed} failed` },
     ];
 
     const filtered = useMemo(() => {
@@ -471,7 +595,8 @@ export default function CampaignsPage() {
                 (c) =>
                     c.campaign_name.toLowerCase().includes(q) ||
                     c.segments?.name?.toLowerCase().includes(q) ||
-                    c.templates?.template_name?.toLowerCase().includes(q)
+                    c.templates?.template_name?.toLowerCase().includes(q) ||
+                    c.message_body?.toLowerCase().includes(q)
             );
         }
         if (sort === "newest") list.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
@@ -511,12 +636,15 @@ export default function CampaignsPage() {
 
     return (
         <DashboardLayout>
-            <div className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-lg border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                        Text Blasting
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                        Broadcasts
                     </p>
-                    <h1 className="mt-0.5 text-2xl font-semibold tracking-tight">Campaigns</h1>
+                    <h1 className="mt-1 text-3xl font-semibold tracking-tight">Campaigns</h1>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Schedule, send, and measure outbound SMS campaigns.
+                    </p>
                 </div>
                 <NewCampaignDialog
                     segments={(segments as SegmentItem[]) ?? []}
@@ -529,19 +657,19 @@ export default function CampaignsPage() {
                     {summaryStats.map((s) => (
                         <Card key={s.label} className="py-4">
                             <CardHeader className="px-5 pb-1 pt-0">
-                                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                <CardTitle className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                                     {s.label}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="px-5">
-                                <p className="text-2xl font-bold tabular-nums">{s.value}</p>
+                                <p className="text-2xl font-semibold tabular-nums">{s.value}</p>
                                 <p className="text-xs text-muted-foreground">{s.sub}</p>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
 
-                <Card className="gap-0 py-0">
+                <Card className="gap-0 overflow-hidden py-0">
                     <div className="flex flex-col gap-3 border-b px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
                             <TabsList className="h-8">
@@ -608,13 +736,19 @@ export default function CampaignsPage() {
                                             Audience
                                         </TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">
-                                            Template
+                                            Message
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">
+                                            Recipients
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-wide">
+                                            Queued
                                         </TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">
                                             Sent
                                         </TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">
-                                            Delivery
+                                            Delivered
                                         </TableHead>
                                         <TableHead className="text-xs font-semibold uppercase tracking-wide">
                                             Failed
@@ -634,7 +768,9 @@ export default function CampaignsPage() {
                                 <TableBody>
                                     {filtered.map((item: CampaignItem_) => {
                                         const s = statsMap[item.id];
-                                        const sent = (s?.sent ?? 0) + (s?.delivered ?? 0);
+                                        const total = s?.total ?? 0;
+                                        const queued = s?.queued ?? 0;
+                                        const sent = s?.sent ?? 0;
                                         const delivered = s?.delivered ?? 0;
                                         const failed = s?.failed ?? 0;
                                         const cfg = statusConfig[item.status ?? "Draft"];
@@ -654,20 +790,27 @@ export default function CampaignsPage() {
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">
-                                                    {item.templates?.template_name ?? "—"}
-                                                </TableCell>
-                                                <TableCell className="tabular-nums">
-                                                    {sent > 0 ? (
-                                                        sent.toLocaleString()
-                                                    ) : (
-                                                        <span className="text-muted-foreground">—</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <DeliveryBar sent={sent} delivered={delivered} />
+                                                    {item.templates?.template_name ?? (item.message_body ? "Custom message" : "—")}
                                                 </TableCell>
                                                 <TableCell className="tabular-nums text-muted-foreground">
-                                                    {failed > 0 ? failed.toLocaleString() : "—"}
+                                                    {formatCount(total)}
+                                                </TableCell>
+                                                <TableCell className="tabular-nums text-muted-foreground">
+                                                    {formatCount(queued)}
+                                                </TableCell>
+                                                <TableCell className="tabular-nums text-muted-foreground">
+                                                    {formatCount(sent)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="min-w-4 tabular-nums">
+                                                            {formatCount(delivered)}
+                                                        </span>
+                                                        <DeliveryBar total={total} delivered={delivered} />
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="tabular-nums text-muted-foreground">
+                                                    {formatCount(failed)}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant={cfg.variant} className="gap-1.5">

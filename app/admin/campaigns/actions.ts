@@ -16,7 +16,9 @@ export async function add_campaign(_prevState: unknown, formData: FormData) {
     const validatedFields = CreateCampaignSchema.safeParse({
         campaign_name: formData.get('campaign_name'),
         segment_id: formData.get('segment_id'),
+        message_mode: formData.get('message_mode') ?? undefined,
         template_id: formData.get('template_id'),
+        message_body: formData.get('message_body'),
         send_immediately: formData.get('send_immediately') ?? undefined,
         schedule_time: formData.get('schedule_time') ?? undefined,
     })
@@ -49,7 +51,10 @@ export async function add_campaign(_prevState: unknown, formData: FormData) {
         .insert({
             campaign_name: validatedFields.data.campaign_name,
             segment_id: validatedFields.data.segment_id,
-            template_id: validatedFields.data.template_id,
+            template_id: validatedFields.data.template_id ?? null,
+            message_body: validatedFields.data.message_mode === 'custom'
+                ? validatedFields.data.message_body
+                : null,
             scheduled_date: scheduledDate.toISOString(),
             user_id: userId,
             status,
@@ -91,7 +96,9 @@ export async function update_campaign(id: string | number, formData: FormData) {
     const validatedFields = CreateCampaignSchema.safeParse({
         campaign_name: formData.get('campaign_name'),
         segment_id: formData.get('segment_id'),
+        message_mode: formData.get('message_mode') ?? undefined,
         template_id: formData.get('template_id'),
+        message_body: formData.get('message_body'),
         send_immediately: formData.get('send_immediately') ?? undefined,
         schedule_time: formData.get('schedule_time') ?? undefined,
     })
@@ -113,7 +120,10 @@ export async function update_campaign(id: string | number, formData: FormData) {
         .update({
             campaign_name: validatedFields.data.campaign_name,
             segment_id: validatedFields.data.segment_id,
-            template_id: validatedFields.data.template_id,
+            template_id: validatedFields.data.template_id ?? null,
+            message_body: validatedFields.data.message_mode === 'custom'
+                ? validatedFields.data.message_body
+                : null,
             scheduled_date: scheduledDate.toISOString(),
         })
         .eq('id', id)

@@ -43,29 +43,44 @@ export type Database = {
         Row: {
           campaign_name: string | null
           created_at: string
+          completed_at: string | null
           id: number
+          message_body: string | null
           scheduled_date: string | null
           segment_id: string | null
+          started_at: string | null
+          status: string
           template_id: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           campaign_name?: string | null
           created_at?: string
+          completed_at?: string | null
           id?: number
+          message_body?: string | null
           scheduled_date?: string | null
           segment_id?: string | null
+          started_at?: string | null
+          status?: string
           template_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           campaign_name?: string | null
           created_at?: string
+          completed_at?: string | null
           id?: number
+          message_body?: string | null
           scheduled_date?: string | null
           segment_id?: string | null
+          started_at?: string | null
+          status?: string
           template_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {

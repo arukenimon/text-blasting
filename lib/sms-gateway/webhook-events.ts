@@ -111,12 +111,20 @@ async function upsertOutbound(
 ) {
     if (!gatewayMessageId) return
 
-    const { data: existing } = await admin
+    let existingQuery = admin
         .from('messages')
         .select('id, status')
         .eq('user_id', userId)
         .eq('gateway_message_id', gatewayMessageId)
-        .maybeSingle()
+        .order('created_at', { ascending: true })
+        .limit(1)
+
+    if (patch.phone_no) {
+        existingQuery = existingQuery.eq('phone_no', patch.phone_no)
+    }
+
+    const { data: existingRows } = await existingQuery
+    const existing = existingRows?.[0]
 
     // Don't downgrade a terminal status: delivered/failed beats sent.
     if (existing) {

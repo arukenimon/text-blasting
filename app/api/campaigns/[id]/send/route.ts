@@ -69,13 +69,14 @@ export async function POST(
         id: number
         user_id: string | null
         status: string
+        message_body: string | null
         templates: { id: string; template_name: string; body: string } | { id: string; template_name: string; body: string }[] | null
         segments: { id: string; name: string; contacts: RawContact[] } | { id: string; name: string; contacts: RawContact[] }[] | null
     }
     const { data: campaignRaw, error: campaignErr } = await admin
         .from('campaigns')
         .select(
-            'id, campaign_name, segment_id, template_id, status, user_id, ' +
+            'id, campaign_name, segment_id, template_id, status, user_id, message_body, ' +
             'templates(id, template_name, body), ' +
             'segments(id, name, contacts(id, full_name, phone_no, status))'
         )
@@ -98,8 +99,9 @@ export async function POST(
 
     const template = Array.isArray(campaign.templates) ? campaign.templates[0] : campaign.templates
     const segment = Array.isArray(campaign.segments) ? campaign.segments[0] : campaign.segments
-    if (!template?.body) {
-        return NextResponse.json({ error: 'Template missing or empty' }, { status: 400 })
+    const messageBody = campaign.message_body?.trim() || template?.body || ''
+    if (!messageBody) {
+        return NextResponse.json({ error: 'Message missing or empty' }, { status: 400 })
     }
 
     const allContacts: Contact[] = (segment?.contacts ?? [])
@@ -144,7 +146,7 @@ export async function POST(
         // we send a single multi-recipient request; otherwise we send per contact.
         const groups = new Map<string, Contact[]>()
         for (const c of chunk) {
-            const text = personalizeMessage(template.body, c)
+            const text = personalizeMessage(messageBody, c)
             const list = groups.get(text) ?? []
             list.push(c)
             groups.set(text, list)
@@ -168,6 +170,16 @@ export async function POST(
                 .from('messages')
                 .insert(pendingRows)
                 .select('id, contact_id')
+            const insertedIds = (inserted ?? []).map((r) => r.id)
+
+            if (insertedIds.length !== recipients.length) {
+                const message = 'Failed to record every campaign recipient before sending'
+                failedCount += recipients.length
+                recipients.forEach((r, idx) =>
+                    errors.push({ recipient: phoneNumbers[idx], error: message })
+                )
+                continue
+            }
 
             try {
                 const resp = await gateway.sendMessage({
@@ -182,10 +194,7 @@ export async function POST(
                         status: 'queued',
                         gateway_message_id: resp.id,
                     })
-                    .in(
-                        'id',
-                        (inserted ?? []).map((r) => r.id)
-                    )
+                    .in('id', insertedIds)
                 sentCount += recipients.length
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'send failed'
@@ -196,10 +205,7 @@ export async function POST(
                         failed_at: new Date().toISOString(),
                         error_reason: message,
                     })
-                    .in(
-                        'id',
-                        (inserted ?? []).map((r) => r.id)
-                    )
+                    .in('id', insertedIds)
                 failedCount += recipients.length
                 recipients.forEach((r, idx) =>
                     errors.push({ recipient: phoneNumbers[idx], error: message })

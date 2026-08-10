@@ -34,6 +34,7 @@ export function useMessagesRealtime({ campaignId, additionalKeys }: Options = {}
                 },
                 () => {
                     queryClient.invalidateQueries({ queryKey: ['messages'] })
+                    queryClient.invalidateQueries({ queryKey: ['campaign-stats'] })
                     if (campaignId) {
                         queryClient.invalidateQueries({ queryKey: ['messages', campaignId] })
                         queryClient.invalidateQueries({ queryKey: ['campaign-stats', campaignId] })

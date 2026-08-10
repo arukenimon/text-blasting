@@ -282,9 +282,10 @@ function TemplateFormDialog({
     useEffect(() => {
         if (state?.success) {
             queryClient.invalidateQueries({ queryKey: ["templates"] });
-            setOpen(false);
+            const timer = window.setTimeout(() => setOpen(false), 0);
+            return () => window.clearTimeout(timer);
         }
-    }, [state]);
+    }, [state, queryClient]);
 
     // ── Edit ──
     const [editErrors, setEditErrors] = useState<Record<string, string[]>>({});
@@ -757,15 +758,13 @@ export default function TemplatesPage() {
         <DashboardLayout>
             <div className="flex flex-col flex-1 min-w-0">
                 <Topbar />
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="mt-6 space-y-6">
 
                     {/* ── Header ─────────────────────────────────── */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight">Templates</h1>
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                                Manage reusable SMS templates for your campaigns.
-                            </p>
+                            <p className="text-sm font-semibold">Template library</p>
+                            <p className="text-xs text-muted-foreground">Draft approved copy and keep SMS length visible before sending.</p>
                         </div>
                         <TemplateFormDialog
                             trigger={

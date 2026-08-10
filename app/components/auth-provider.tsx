@@ -11,8 +11,26 @@ import {
 import { type Session, type User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getProfileOption } from "../admin/settings/QueryOptions";
+
+type GatewayProfile = {
+  mode?: "local" | "cloud";
+  local_server?: {
+    local_address?: string;
+    public_address?: string;
+    username?: string;
+    password?: string;
+  } | null;
+  cloud_server?: {
+    server_address?: string;
+    username?: string;
+    password?: string;
+  } | null;
+  sim_slot?: number | string | null;
+  webhook_token?: string | null;
+  webhook_registrations?: Record<string, unknown> | null;
+} | null;
 
 interface AuthContextValue {
   user: User | null;
@@ -20,7 +38,7 @@ interface AuthContextValue {
   /** True while the initial session is being resolved. */
   loading: boolean;
   signOut: () => Promise<void>;
-  profile: any; // Replace with actual profile type
+  profile: GatewayProfile;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -58,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const { data: profile } = useQuery(getProfileOption());
+  const { data: profile } = useQuery(getProfileOption()) as { data: GatewayProfile };
 
 
   const signOut = useCallback(async () => {

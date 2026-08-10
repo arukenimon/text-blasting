@@ -58,7 +58,8 @@ A full-stack SMS campaign management platform for creating, scheduling, and trac
 ### Prerequisites
 
 - Node.js 18+
-- A [Supabase](https://supabase.com) project
+- Docker Desktop
+- Supabase CLI
 - SMS Gateway credentials (cloud or local)
 
 ### Installation
@@ -69,6 +70,28 @@ cd text-blasting
 npm install
 ```
 
+### Local Supabase With Docker
+
+Start the local Supabase stack:
+
+```bash
+npm run supabase:start
+```
+
+Copy `.env.local.example` to `.env.local`, then replace the anon and service-role keys with the values printed by:
+
+```bash
+npm run supabase:status
+```
+
+Apply migrations from a clean local database:
+
+```bash
+npm run supabase:reset
+```
+
+Supabase Studio will be available at [http://127.0.0.1:56323](http://127.0.0.1:56323). The app expects Supabase API at `http://127.0.0.1:56321`.
+
 ### Environment Variables
 
 Create a `.env.local` file in the root directory:
@@ -76,7 +99,7 @@ Create a `.env.local` file in the root directory:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
-NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
+SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 
 WEBHOOK_URL=<your-webhook-endpoint>
 WEBHOOK_SECRET=<your-webhook-secret>

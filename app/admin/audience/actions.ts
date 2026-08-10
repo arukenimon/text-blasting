@@ -1,11 +1,37 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { SignupFormSchema, SegmentFormSchema } from './schema'
 
-export async function add_segment(_prevState: unknown, formData: FormData) {
-    const supabase = createAdminClient()
+const NEW_SEGMENT_VALUE = '__new_segment__'
 
+async function createSegmentForCurrentUser(fields: {
+    name: string
+    description?: string
+    color_hex: string
+}) {
+    const sessionClient = await createClient()
+    return sessionClient.rpc('create_segment_for_authenticated', {
+        segment_name: fields.name,
+        segment_description: fields.description ?? '',
+        segment_color_hex: fields.color_hex,
+    })
+}
+
+async function createContactForCurrentUser(fields: {
+    name: string
+    phone_no: string
+    segment_id: string
+}) {
+    const sessionClient = await createClient()
+    return sessionClient.rpc('create_contact_for_authenticated', {
+        contact_name: fields.name,
+        contact_phone_no: fields.phone_no,
+        contact_segment_id: fields.segment_id,
+    })
+}
+
+export async function add_segment(_prevState: unknown, formData: FormData) {
     const validatedFields = SegmentFormSchema.safeParse({
         name: formData.get('name'),
         description: formData.get('description'),
@@ -19,7 +45,7 @@ export async function add_segment(_prevState: unknown, formData: FormData) {
         }
     }
 
-    const { error } = await supabase.from('segments').insert({
+    const { error } = await createSegmentForCurrentUser({
         name: validatedFields.data.name,
         description: validatedFields.data.description,
         color_hex: validatedFields.data.color_hex,
@@ -33,12 +59,13 @@ export async function add_segment(_prevState: unknown, formData: FormData) {
 }
 
 export async function add_contact(_prevState: unknown, formData: FormData) {
-    const supabase = createAdminClient()
-
     const validatedFields = SignupFormSchema.safeParse({
         name: formData.get('name'),
         phone_no: formData.get('phone_no'),
         segment: formData.get('segment'),
+        new_segment_name: formData.get('new_segment_name') ?? undefined,
+        new_segment_description: formData.get('new_segment_description') ?? undefined,
+        new_segment_color: formData.get('new_segment_color') ?? undefined,
     })
 
     if (!validatedFields.success) {
@@ -48,11 +75,49 @@ export async function add_contact(_prevState: unknown, formData: FormData) {
         }
     }
 
-    const { error } = await supabase.from('contacts').insert({
-        full_name: validatedFields.data.name,
+    let segmentId = validatedFields.data.segment
+
+    if (segmentId === NEW_SEGMENT_VALUE) {
+        const segmentFields = SegmentFormSchema.safeParse({
+            name: validatedFields.data.new_segment_name,
+            description: validatedFields.data.new_segment_description,
+            color_hex: validatedFields.data.new_segment_color || '#6366f1',
+        })
+
+        if (!segmentFields.success) {
+            return {
+                success: false as const,
+                errors: {
+                    new_segment_name:
+                        segmentFields.error.flatten().fieldErrors.name ??
+                        segmentFields.error.flatten().fieldErrors.color_hex ??
+                        ['Please enter a valid segment name.'],
+                } as Record<string, string[]>,
+            }
+        }
+
+        const { data: createdSegmentId, error: segmentError } = await createSegmentForCurrentUser({
+            name: segmentFields.data.name,
+            description: segmentFields.data.description,
+            color_hex: segmentFields.data.color_hex,
+        })
+
+        if (segmentError || !createdSegmentId) {
+            return {
+                success: false as const,
+                errors: {
+                    new_segment_name: [segmentError?.message ?? 'Failed to create segment'],
+                } as Record<string, string[]>,
+            }
+        }
+
+        segmentId = createdSegmentId
+    }
+
+    const { error } = await createContactForCurrentUser({
+        name: validatedFields.data.name,
         phone_no: validatedFields.data.phone_no,
-        status: 'active',
-        segment_id: validatedFields.data.segment,
+        segment_id: segmentId,
     })
 
     if (error) {

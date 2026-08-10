@@ -9,7 +9,10 @@ export const SignupFormSchema = z.object({
         .min(7, { error: 'Phone number must be at least 7 digits long.' })
         .regex(/^\d+$/, { error: 'Phone number must contain only digits.' })
         .trim(),
-    segment: z.string().min(1, { error: 'Please select a segment.' })
+    segment: z.string().min(1, { error: 'Please select a segment.' }),
+    new_segment_name: z.string().optional(),
+    new_segment_description: z.string().optional(),
+    new_segment_color: z.string().optional(),
 })
 
 export const SegmentFormSchema = z.object({

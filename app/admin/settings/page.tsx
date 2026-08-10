@@ -15,6 +15,7 @@ import { useAuth } from "@/app/components/auth-provider";
 type ActionState = {
     success: boolean;
     errors: Record<string, string[]>;
+    webhookSecretSaved?: boolean;
 };
 
 const initialState: ActionState = { success: false, errors: {} };
@@ -261,6 +262,17 @@ function SmsTab() {
                 <Field label="Your webhook URL">
                     <Input value={webhookPreview} readOnly className="font-mono text-xs" />
                 </Field>
+                <Field label="Signing key" error={state.errors.webhook_secret?.[0]}>
+                    <Input
+                        name="webhook_secret"
+                        type="password"
+                        placeholder="Leave blank to keep current signing key"
+                        autoComplete="new-password"
+                    />
+                </Field>
+                {state.webhookSecretSaved && (
+                    <p className="text-xs text-emerald-600">Signing key saved for webhook verification.</p>
+                )}
                 <p className="text-xs text-muted-foreground">
                     Registered events on the gateway: <span className="font-medium">{registeredCount}</span>
                 </p>
@@ -323,9 +335,12 @@ export default function SettingsPage() {
 
     return (
         <DashboardLayout>
-            <header className="border-b pb-5">
-                <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Admin</p>
-                <h1 className="mt-0.5 text-2xl font-semibold tracking-tight">Settings</h1>
+            <header className="rounded-lg border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Configuration</p>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight">Settings</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Manage account security, SMS gateway credentials, and webhook registration.
+                </p>
             </header>
 
             <div className="mt-6 space-y-6">
@@ -340,7 +355,7 @@ export default function SettingsPage() {
                     </TabsList>
                 </Tabs>
 
-                <div className="max-w-lg">
+                <div className="max-w-2xl">
                     {active === "security" && <SecurityTab />}
                     {active === "sms" && <SmsTab />}
                 </div>

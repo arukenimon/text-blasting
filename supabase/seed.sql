@@ -1,0 +1,1 @@
+-- Add local seed data here if you want `supabase db reset` to preload records.

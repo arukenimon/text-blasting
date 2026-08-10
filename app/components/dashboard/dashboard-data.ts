@@ -20,8 +20,9 @@ export type CampaignItem_ = {
     campaign_name: string;
     segment_id: string;
     segments: SegmentItem;
-    templates: TemplateItem_;
-    template_id: string;
+    templates: TemplateItem_ | null;
+    template_id: string | null;
+    message_body?: string | null;
     scheduled_date: string;
     status?: CampaignStatus;
     started_at?: string | null;

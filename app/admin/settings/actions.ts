@@ -16,6 +16,7 @@ import { headers } from 'next/headers'
 type ActionResult = {
     success: boolean
     errors: Record<string, string[]>
+    webhookSecretSaved?: boolean
 }
 
 async function getCurrentUserId(): Promise<string | null> {
@@ -62,6 +63,7 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
         cloud_username: formData.get('cloud_username'),
         cloud_password: formData.get('cloud_password'),
         sim_slot: formData.get('sim_slot'),
+        webhook_secret: formData.get('webhook_secret') ?? '',
     })
 
     if (!validated.success) {
@@ -72,25 +74,31 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
     if (!userId) return { success: false, errors: { _: ['Not authenticated.'] } }
 
     const d = validated.data
+    const profileUpdate: Record<string, unknown> = {
+        id: userId,
+        mode: d.mode,
+        local_server: {
+            local_address: d.local_address ?? '',
+            public_address: d.public_address ?? '',
+            username: d.local_username ?? '',
+            password: d.local_password ?? '',
+        },
+        cloud_server: {
+            server_address: d.cloud_address,
+            username: d.cloud_username,
+            password: d.cloud_password,
+        },
+        sim_slot: Number(d.sim_slot),
+    }
+
+    if (d.webhook_secret) {
+        profileUpdate.webhook_secret = d.webhook_secret
+    }
+
     const { error: upsertErr } = await supabase
         .from('profile')
         .upsert(
-            {
-                id: userId,
-                mode: d.mode,
-                local_server: {
-                    local_address: d.local_address ?? '',
-                    public_address: d.public_address ?? '',
-                    username: d.local_username ?? '',
-                    password: d.local_password ?? '',
-                },
-                cloud_server: {
-                    server_address: d.cloud_address,
-                    username: d.cloud_username,
-                    password: d.cloud_password,
-                },
-                sim_slot: Number(d.sim_slot),
-            },
+            profileUpdate,
             { onConflict: 'id' }
         )
     if (upsertErr) return { success: false, errors: { _: [upsertErr.message] } }
@@ -98,9 +106,9 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
     // Re-register webhooks against the new credentials (best effort, doesn't block save success)
     const reg = await registerWebhooksForUser(userId)
     if (reg.warnings.length) {
-        return { success: true, errors: { _webhook: reg.warnings } }
+        return { success: true, errors: { _webhook: reg.warnings }, webhookSecretSaved: Boolean(d.webhook_secret) }
     }
-    return { success: true, errors: {} }
+    return { success: true, errors: {}, webhookSecretSaved: Boolean(d.webhook_secret) }
 }
 
 /**
