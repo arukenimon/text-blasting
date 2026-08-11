@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CheckCircle2, KeyRound, Loader2, Smartphone, XCircle } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, UsersRound, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardLayout } from "../../components/dashboard/dashboard-layout";
-import { reregister_webhooks, update_password, update_sms_gateway } from "./actions";
+import { reregister_webhooks, update_password, update_sms_gateway, update_workspace_name } from "./actions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/components/auth-provider";
 import {
@@ -97,11 +98,13 @@ function SecurityTab() {
 type ConnectionResult = { ok: boolean; mode?: string; error?: string; status?: number } | null;
 
 function SmsTab() {
+    const router = useRouter();
     const { activeWorkspace, activeRole } = useAuth();
     const workspaceId = activeWorkspace?.id;
     const canManage = canManageWorkspace(activeRole);
     const queryClient = useQueryClient();
     const [state, action, pending] = useActionState(update_sms_gateway, initialState);
+    const [workspaceState, workspaceAction, workspacePending] = useActionState(update_workspace_name, initialState);
     const [inviteState, inviteAction, invitePending] = useActionState(invite_workspace_member, initialState);
     const { data: profile } = useQuery(getWorkspaceGatewayOption(canManage ? workspaceId : null));
     const { data: team } = useQuery(getWorkspaceTeamOption(canManage ? workspaceId : null));
@@ -121,6 +124,13 @@ function SmsTab() {
             queryClient.invalidateQueries({ queryKey: ["workspace-team"] });
         }
     }, [inviteState, queryClient]);
+
+    useEffect(() => {
+        if (workspaceState?.success) {
+            queryClient.invalidateQueries({ queryKey: ["workspace-context"] });
+            router.refresh();
+        }
+    }, [workspaceState, queryClient, router]);
 
     const handleTestConnection = async () => {
         setTesting(true);
@@ -175,7 +185,30 @@ function SmsTab() {
     }
 
     return (
-        <form action={action} className="space-y-4">
+        <div className="space-y-4">
+            <form action={workspaceAction}>
+            <Section title="Workspace" description="Name shown in navigation, switching, and team settings.">
+                <Field label="Workspace name" error={workspaceState.errors.workspace_name?.[0]}>
+                    <Input
+                        name="workspace_name"
+                        placeholder="Acme Marketing"
+                        defaultValue={activeWorkspace.name}
+                        maxLength={80}
+                        required
+                    />
+                </Field>
+                {workspaceState.success && (
+                    <p className="text-sm text-emerald-600">Workspace name updated.</p>
+                )}
+                <div className="flex justify-end">
+                    <Button type="submit" size="sm" disabled={workspacePending}>
+                        {workspacePending ? "Saving..." : "Save workspace"}
+                    </Button>
+                </div>
+            </Section>
+            </form>
+
+            <form action={action} className="space-y-4">
             <Section title="SIM card" description="Which SIM slot should be used to send messages.">
                 <Field label="SIM slot" error={state.errors.sim_slot?.[0]}>
                     <div className="flex gap-3">
@@ -354,13 +387,14 @@ function SmsTab() {
                     {pending ? "Saving…" : "Save credentials"}
                 </Button>
             </div>
-        </form>
+            </form>
+        </div>
     );
 }
 
 const tabs = [
     { value: "security", label: "Security", icon: KeyRound },
-    { value: "sms", label: "SMS", icon: Smartphone },
+    { value: "sms", label: "Workspace", icon: UsersRound },
 ] as const;
 
 type TabValue = (typeof tabs)[number]["value"];

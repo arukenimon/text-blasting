@@ -71,7 +71,7 @@ export async function proxy(request: NextRequest) {
         return redirectWithCookies(request, response, "/login", pathname);
     }
 
-    if (user && pathname === "/login") {
+    if (user && (pathname === "/login" || pathname === "/register")) {
         return copyResponseCookies(response, NextResponse.redirect(new URL("/admin", request.url)));
     }
 

@@ -163,9 +163,14 @@ export default function Home() {
                         <a href="#workflow" className="hover:text-white">Workflow</a>
                         <a href="#faq" className="hover:text-white">FAQ</a>
                     </nav>
-                    <Button asChild size="sm" className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
-                        <Link href="/login">Sign in</Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button asChild size="sm" variant="ghost" className="hidden text-white hover:bg-white/[0.10] hover:text-white sm:inline-flex">
+                            <Link href="/login">Sign in</Link>
+                        </Button>
+                        <Button asChild size="sm" className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
+                            <Link href="/register">Create account</Link>
+                        </Button>
+                    </div>
                 </header>
 
                 <div className="relative z-10 mx-auto grid min-h-[calc(88svh-80px)] max-w-7xl items-center gap-10 px-4 pb-14 pt-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,500px)] lg:px-8 xl:grid-cols-[minmax(0,1fr)_minmax(480px,560px)]">
@@ -182,8 +187,8 @@ export default function Home() {
                         </p>
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                             <Button asChild size="lg" className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
-                                <Link href="/login">
-                                    Access dashboard <ArrowRight className="size-4" />
+                                <Link href="/register">
+                                    Create account <ArrowRight className="size-4" />
                                 </Link>
                             </Button>
                             <Button asChild size="lg" variant="outline" className="border-white/20 bg-white/[0.08] text-white hover:bg-white/[0.14] hover:text-white">
@@ -352,12 +357,12 @@ export default function Home() {
                         </Badge>
                         <h2 className="text-3xl font-semibold tracking-tight">Ready to manage your next text campaign?</h2>
                         <p className="mt-3 text-sm leading-6 text-slate-300">
-                            Sign in to manage contacts, templates, campaign scheduling, gateway settings, and webhook delivery events.
+                            Create an account or sign in to manage contacts, templates, campaign scheduling, gateway settings, and webhook delivery events.
                         </p>
                     </div>
                     <Button asChild size="lg" className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
-                        <Link href="/login">
-                            Open admin dashboard <ArrowRight className="size-4" />
+                        <Link href="/register">
+                            Create account <ArrowRight className="size-4" />
                         </Link>
                     </Button>
                 </div>
@@ -369,8 +374,8 @@ export default function Home() {
                         <Smartphone className="size-4 text-primary" />
                         <span>Text Blasting SMS Campaign Management</span>
                     </div>
-                    <Link href="/login" className="font-semibold text-foreground hover:text-primary">
-                        Admin sign in
+                    <Link href="/register" className="font-semibold text-foreground hover:text-primary">
+                        Create admin account
                     </Link>
                 </div>
             </footer>

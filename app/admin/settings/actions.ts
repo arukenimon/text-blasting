@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
-import { PasswordSchema, SmsGatewaySchema } from './schema'
+import { PasswordSchema, SmsGatewaySchema, WorkspaceNameSchema } from './schema'
 import {
     ALL_WEBHOOK_EVENTS,
     SmsGatewayClient,
@@ -103,6 +103,32 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
         return { success: true, errors: { _webhook: reg.warnings }, webhookSecretSaved: Boolean(d.webhook_secret) }
     }
     return { success: true, errors: {}, webhookSecretSaved: Boolean(d.webhook_secret) }
+}
+
+export async function update_workspace_name(_prev: unknown, formData: FormData): Promise<ActionResult> {
+    const validated = WorkspaceNameSchema.safeParse({
+        workspace_name: formData.get('workspace_name'),
+    })
+
+    if (!validated.success) {
+        return { success: false, errors: validated.error.flatten().fieldErrors as Record<string, string[]> }
+    }
+
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return { success: false, errors: { workspace_name: [err instanceof Error ? err.message : 'Not authorized.'] } }
+    }
+
+    const supabase = createAdminClient()
+    const { error } = await supabase
+        .from('workspaces')
+        .update({ name: validated.data.workspace_name })
+        .eq('id', context.workspace.id)
+
+    if (error) return { success: false, errors: { workspace_name: [error.message] } }
+    return { success: true, errors: {} }
 }
 
 /**

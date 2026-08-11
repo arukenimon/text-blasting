@@ -15,3 +15,11 @@ export const SmsGatewaySchema = z
         sim_slot: z.enum(['1', '2'], { error: 'SIM slot must be 1 or 2.' }),
         webhook_secret: z.string().trim().optional(),
     })
+
+export const WorkspaceNameSchema = z.object({
+    workspace_name: z
+        .string()
+        .trim()
+        .min(2, { error: 'Workspace name must be at least 2 characters.' })
+        .max(80, { error: 'Workspace name must be 80 characters or fewer.' }),
+})
