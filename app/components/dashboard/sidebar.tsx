@@ -3,7 +3,6 @@
 import {
     BarChart2,
     FileText,
-    Inbox,
     LayoutDashboard,
     LogOut,
     Megaphone,
@@ -19,13 +18,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { NavItem } from "./dashboard-data";
 import { useAuth } from "../auth-provider";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const navIcons: Record<string, React.ElementType> = {
     Overview: LayoutDashboard,
     Campaigns: Megaphone,
     Audience: Users,
     Templates: FileText,
-    Inbox: Inbox,
     Reports: BarChart2,
     Settings: Settings,
 };
@@ -54,13 +53,19 @@ export function Sidebar({ items }: SidebarProps) {
 
             <Separator className="bg-sidebar-border" />
 
+            <div className="px-5 py-4">
+                <WorkspaceSwitcher />
+            </div>
+
+            <Separator className="bg-sidebar-border" />
+
             <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
                 <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/45">
                     Workspace
                 </p>
                 {items.map((item) => {
                     const isActive =
-                        item.href === "/admin"
+                        item.href === "/admin/dashboard"
                             ? pathname === "/admin" || pathname === "/admin/dashboard"
                             : pathname === item.href;
                     const Icon = navIcons[item.name] ?? LayoutDashboard;

@@ -34,7 +34,7 @@ export type CampaignItem_ = {
 export type SegmentItem = {
     id: string;
     name: string;
-    contacts?: { count: number; phone_no: number; full_name: string }[];
+    contacts?: { count?: number; phone_no?: string | number; full_name?: string | null }[];
     description: string;
     createdAt: string;
     color_hex: string;
@@ -71,11 +71,10 @@ export type TemplateItem_ = {
 };
 
 export const navItems: NavItem[] = [
-    { name: "Overview", href: "/admin" },
+    { name: "Overview", href: "/admin/dashboard" },
     { name: "Campaigns", href: "/admin/campaigns" },
     { name: "Audience", href: "/admin/audience" },
     { name: "Templates", href: "/admin/templates" },
-    { name: "Inbox", href: "#" },
     { name: "Reports", href: "#" },
     { name: "Settings", href: "/admin/settings" },
 ];

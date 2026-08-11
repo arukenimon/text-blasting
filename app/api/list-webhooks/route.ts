@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { GatewayNotConfiguredError, getGatewayClientForUser } from '@/lib/sms-gateway'
+import { GatewayNotConfiguredError, getGatewayClientForWorkspace } from '@/lib/sms-gateway'
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 export const runtime = 'nodejs'
 
 export async function GET() {
-    const session = await createClient()
-    const { data: { user } } = await session.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return NextResponse.json(
+            { error: err instanceof Error ? err.message : 'Not authorized' },
+            { status: 403 }
+        )
+    }
 
     try {
-        const { client, profile } = await getGatewayClientForUser(user.id)
+        const { client, profile } = await getGatewayClientForWorkspace(context.workspace.id)
         const webhooks = await client.listWebhooks()
         return NextResponse.json({ mode: profile.mode, webhooks })
     } catch (err) {

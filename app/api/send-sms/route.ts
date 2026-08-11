@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import {
     GatewayNotConfiguredError,
     SmsGatewayError,
-    getGatewayClientForUser,
+    getGatewayClientForWorkspace,
 } from '@/lib/sms-gateway'
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 export const runtime = 'nodejs'
 
@@ -15,9 +16,15 @@ export const runtime = 'nodejs'
  * Expected body: { textMessage: { text }, phoneNumbers: string[], simNumber?: number }
  */
 export async function POST(request: NextRequest) {
-    const session = await createClient()
-    const { data: { user } } = await session.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    let context
+    try {
+        context = await requireWorkspaceRole('member')
+    } catch (err) {
+        return NextResponse.json(
+            { error: err instanceof Error ? err.message : 'Not authorized' },
+            { status: 403 }
+        )
+    }
 
     let body: { textMessage?: { text?: string }; phoneNumbers?: string[]; simNumber?: number }
     try {
@@ -33,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     let gateway, profile
     try {
-        ({ client: gateway, profile } = await getGatewayClientForUser(user.id))
+        ({ client: gateway, profile } = await getGatewayClientForWorkspace(context.workspace.id))
     } catch (err) {
         if (err instanceof GatewayNotConfiguredError) {
             return NextResponse.json({ error: err.message }, { status: 400 })
@@ -46,7 +53,8 @@ export async function POST(request: NextRequest) {
 
     // Insert pending rows up-front so the UI sees them immediately.
     const pendingRows = phoneNumbers.map((phone) => ({
-        user_id: user.id,
+        workspace_id: context.workspace.id,
+        user_id: context.userId,
         direction: 'outbound' as const,
         phone_no: phone,
         body: text,

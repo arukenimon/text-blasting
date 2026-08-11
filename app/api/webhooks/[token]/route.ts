@@ -11,8 +11,8 @@ import {
 export const runtime = 'nodejs'
 
 /**
- * Per-user webhook receiver.
- * URL: /api/webhooks/{profile.webhook_token}
+ * Workspace webhook receiver.
+ * URL: /api/webhooks/{workspace_sms_gateway.webhook_token}
  * Headers expected: x-signature, x-timestamp (added by sms-gate.app gateway).
  */
 export async function POST(
@@ -30,19 +30,19 @@ export async function POST(
 
     const admin = createAdminClient()
 
-    // Look up profile by webhook_token. We use service role to bypass RLS.
-    const { data: profile, error: profileErr } = await admin
-        .from('profile')
-        .select('id, webhook_secret')
+    // Look up workspace gateway by webhook_token. We use service role to bypass RLS.
+    const { data: gateway, error: gatewayErr } = await admin
+        .from('workspace_sms_gateway')
+        .select('workspace_id, webhook_secret')
         .eq('webhook_token', token)
         .maybeSingle()
 
-    if (profileErr || !profile) {
+    if (gatewayErr || !gateway) {
         // 404 leaks less info than 401 about whether the token format is valid
         return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    if (!verifySignature(profile.webhook_secret, rawBody, timestamp, signature)) {
+    if (!verifySignature(gateway.webhook_secret, rawBody, timestamp, signature)) {
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
@@ -61,7 +61,8 @@ export async function POST(
     // Idempotency: insert into dedupe table; primary-key conflict = already seen.
     const eventId = eventIdempotencyKey(rawBody)
     const { error: dedupeErr } = await admin.from('processed_webhook_events').insert({
-        user_id: profile.id,
+        workspace_id: gateway.workspace_id,
+        user_id: null,
         gateway_event_id: eventId,
     })
 
@@ -75,7 +76,7 @@ export async function POST(
     }
 
     try {
-        const result = await applyWebhookEvent(admin, profile.id, evt)
+        const result = await applyWebhookEvent(admin, gateway.workspace_id, evt)
         return NextResponse.json({ ok: true, ...result })
     } catch (err) {
         console.error('[webhook] applyWebhookEvent failed', err)

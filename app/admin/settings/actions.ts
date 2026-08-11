@@ -4,7 +4,6 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { PasswordSchema, SmsGatewaySchema } from './schema'
 import {
     ALL_WEBHOOK_EVENTS,
-    LOCAL_SUPPORTED_EVENTS,
     SmsGatewayClient,
     buildWebhookUrl,
     credentialsFromProfile,
@@ -12,6 +11,7 @@ import {
     sleep,
 } from '@/lib/sms-gateway'
 import { headers } from 'next/headers'
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 type ActionResult = {
     success: boolean
@@ -54,11 +54,6 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
     const supabase = createAdminClient()
 
     const validated = SmsGatewaySchema.safeParse({
-        mode: formData.get('mode') ?? 'cloud',
-        local_address: formData.get('local_address') ?? '',
-        public_address: formData.get('public_address') ?? '',
-        local_username: formData.get('local_username') ?? '',
-        local_password: formData.get('local_password') ?? '',
         cloud_address: formData.get('cloud_address'),
         cloud_username: formData.get('cloud_username'),
         cloud_password: formData.get('cloud_password'),
@@ -70,19 +65,18 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
         return { success: false, errors: validated.error.flatten().fieldErrors as Record<string, string[]> }
     }
 
-    const userId = await getCurrentUserId()
-    if (!userId) return { success: false, errors: { _: ['Not authenticated.'] } }
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return { success: false, errors: { _: [err instanceof Error ? err.message : 'Not authorized.'] } }
+    }
 
     const d = validated.data
-    const profileUpdate: Record<string, unknown> = {
-        id: userId,
-        mode: d.mode,
-        local_server: {
-            local_address: d.local_address ?? '',
-            public_address: d.public_address ?? '',
-            username: d.local_username ?? '',
-            password: d.local_password ?? '',
-        },
+    const gatewayUpdate: Record<string, unknown> = {
+        workspace_id: context.workspace.id,
+        mode: 'cloud',
+        local_server: null,
         cloud_server: {
             server_address: d.cloud_address,
             username: d.cloud_username,
@@ -92,19 +86,19 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
     }
 
     if (d.webhook_secret) {
-        profileUpdate.webhook_secret = d.webhook_secret
+        gatewayUpdate.webhook_secret = d.webhook_secret
     }
 
     const { error: upsertErr } = await supabase
-        .from('profile')
+        .from('workspace_sms_gateway')
         .upsert(
-            profileUpdate,
-            { onConflict: 'id' }
+            gatewayUpdate,
+            { onConflict: 'workspace_id' }
         )
     if (upsertErr) return { success: false, errors: { _: [upsertErr.message] } }
 
     // Re-register webhooks against the new credentials (best effort, doesn't block save success)
-    const reg = await registerWebhooksForUser(userId)
+    const reg = await registerWebhooksForWorkspace(context.workspace.id)
     if (reg.warnings.length) {
         return { success: true, errors: { _webhook: reg.warnings }, webhookSecretSaved: Boolean(d.webhook_secret) }
     }
@@ -116,19 +110,23 @@ export async function update_sms_gateway(_prev: unknown, formData: FormData): Pr
  * Called from update_sms_gateway, but also exposed for manual re-registration.
  */
 export async function reregister_webhooks(): Promise<{ ok: boolean; warnings: string[] }> {
-    const userId = await getCurrentUserId()
-    if (!userId) return { ok: false, warnings: ['Not authenticated.'] }
-    const out = await registerWebhooksForUser(userId)
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return { ok: false, warnings: [err instanceof Error ? err.message : 'Not authorized.'] }
+    }
+    const out = await registerWebhooksForWorkspace(context.workspace.id)
     return { ok: out.warnings.length === 0, warnings: out.warnings }
 }
 
-async function registerWebhooksForUser(userId: string): Promise<{ warnings: string[] }> {
+async function registerWebhooksForWorkspace(workspaceId: string): Promise<{ warnings: string[] }> {
     const warnings: string[] = []
     let profile
     try {
-        profile = await loadGatewayProfile(userId)
+        profile = await loadGatewayProfile(workspaceId)
     } catch (err) {
-        return { warnings: [err instanceof Error ? err.message : 'Failed to load profile'] }
+        return { warnings: [err instanceof Error ? err.message : 'Failed to load gateway settings'] }
     }
 
     let creds
@@ -159,12 +157,11 @@ async function registerWebhooksForUser(userId: string): Promise<{ warnings: stri
         warnings.push(`Failed to clear old webhooks: ${err instanceof Error ? err.message : 'unknown'}`)
     })
 
-    const events = profile.mode === 'local' ? LOCAL_SUPPORTED_EVENTS : ALL_WEBHOOK_EVENTS
     const registrations: Record<string, string> = {}
-    for (const event of events) {
+    for (const event of ALL_WEBHOOK_EVENTS) {
         try {
             const reg = await client.registerWebhook(webhookUrl, event, {
-                id: `${userId.slice(0, 8)}-${event.replace(':', '-')}`,
+                id: `${workspaceId.slice(0, 8)}-${event.replace(':', '-')}`,
             })
             registrations[event] = reg.id
         } catch (err) {
@@ -175,9 +172,9 @@ async function registerWebhooksForUser(userId: string): Promise<{ warnings: stri
 
     const supabase = createAdminClient()
     await supabase
-        .from('profile')
+        .from('workspace_sms_gateway')
         .update({ webhook_registrations: registrations })
-        .eq('id', userId)
+        .eq('workspace_id', workspaceId)
 
     return { warnings }
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
     CalendarDays,
+    ChevronLeft,
+    ChevronRight,
     Clock,
     MessageSquareText,
     MoreHorizontal,
@@ -31,6 +33,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -59,11 +62,16 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSegmentsOption } from "../audience/QueryOptions";
 import { getTemplatesOption } from "../templates/QueryOptions";
-import { add_campaign, send_campaign, update_campaign } from "./actions";
-import { getCampaignOption, getCampaignStatsOption } from "./QueryOptions";
+import { add_campaign, delete_campaign, send_campaign, update_campaign } from "./actions";
+import {
+    getAudiencePreviewContactsOption,
+    getCampaignPageOption,
+    getCampaignStatsOption,
+    getCampaignStatusCountsOption,
+} from "./QueryOptions";
 import moment from "moment";
-import { supabase } from "@/lib/supabase/client";
 import { useMessagesRealtime } from "@/lib/realtime/messages";
+import { useAuth } from "@/app/components/auth-provider";
 
 const statusConfig: Record<
     CampaignStatus,
@@ -77,6 +85,7 @@ const statusConfig: Record<
 };
 
 const SMS_SEGMENT_LENGTH = 160;
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 function getContactCount(segment?: SegmentItem) {
     const count = segment?.contacts?.[0]?.count;
@@ -97,6 +106,133 @@ function DeliveryBar({ total, delivered }: { total: number; delivered: number })
             </div>
             <span className="tabular-nums text-xs text-muted-foreground">{pct}%</span>
         </div>
+    );
+}
+
+function CampaignAudienceCell({
+    segment,
+    workspaceId,
+}: {
+    segment?: SegmentItem;
+    workspaceId?: string | null;
+}) {
+    const [open, setOpen] = useState(false);
+    const { data: preview, isFetching } = useQuery(
+        getAudiencePreviewContactsOption({
+            workspaceId,
+            segmentId: segment?.id,
+            enabled: open,
+        })
+    );
+    const contactCount = preview?.count ?? getContactCount(segment);
+    const visibleContacts = preview?.data ?? [];
+    const remainingContacts = Math.max(0, contactCount - visibleContacts.length);
+
+    return (
+        <HoverCard open={open} onOpenChange={setOpen}>
+            <HoverCardTrigger asChild>
+                <Badge asChild variant="secondary" className="font-normal">
+                    <button type="button" className="cursor-help">
+                        {segment?.name ?? "—"}
+                    </button>
+                </Badge>
+            </HoverCardTrigger>
+            <HoverCardContent align="start" className="w-80">
+                <div className="space-y-3">
+                    <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            Audience
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">{segment?.name ?? "No audience"}</p>
+                        <p className="text-xs text-muted-foreground">
+                            {contactCount.toLocaleString()} contact{contactCount === 1 ? "" : "s"}
+                        </p>
+                    </div>
+                    {isFetching ? (
+                        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                            Loading audience preview...
+                        </p>
+                    ) : visibleContacts.length > 0 ? (
+                        <div className="space-y-2">
+                            {visibleContacts.map((contact) => (
+                                <div
+                                    key={contact.id}
+                                    className="rounded-md border bg-muted/30 px-3 py-2"
+                                >
+                                    <p className="truncate text-sm font-medium">
+                                        {contact.full_name || "Unnamed contact"}
+                                    </p>
+                                    <p className="text-xs tabular-nums text-muted-foreground">
+                                        {String(contact.phone_no)}
+                                    </p>
+                                </div>
+                            ))}
+                            {remainingContacts > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                    +{remainingContacts.toLocaleString()} more contact
+                                    {remainingContacts === 1 ? "" : "s"}
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                            {contactCount > 0
+                                ? "No contact preview is available for this audience."
+                                : "No contacts are assigned to this audience."}
+                        </p>
+                    )}
+                </div>
+            </HoverCardContent>
+        </HoverCard>
+    );
+}
+
+function CampaignMessageCell({ campaign }: { campaign: CampaignItem_ }) {
+    const isTemplate = Boolean(campaign.templates?.template_name);
+    const label = campaign.templates?.template_name ?? (campaign.message_body ? "Custom message" : "—");
+    const body = (campaign.message_body ?? campaign.templates?.body ?? "").trim();
+    const characterCount = body.length;
+    const smsParts = body ? Math.max(1, Math.ceil(characterCount / SMS_SEGMENT_LENGTH)) : 0;
+
+    return (
+        <HoverCard>
+            <HoverCardTrigger asChild>
+                <button
+                    type="button"
+                    className="max-w-44 cursor-help truncate text-left text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+                >
+                    {label}
+                </button>
+            </HoverCardTrigger>
+            <HoverCardContent align="start" className="w-96">
+                <div className="space-y-3">
+                    <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            Message
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">{label}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <Badge variant="secondary" className="font-normal">
+                                {isTemplate ? "Template" : "Custom"}
+                            </Badge>
+                            <Badge variant="outline" className="font-normal">
+                                {characterCount.toLocaleString()} chars
+                            </Badge>
+                            {smsParts > 0 && (
+                                <Badge variant="outline" className="font-normal">
+                                    {smsParts} SMS part{smsParts === 1 ? "" : "s"}
+                                </Badge>
+                            )}
+                        </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto rounded-md border bg-muted/30 p-3">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                            {body || "No message body saved for this campaign."}
+                        </p>
+                    </div>
+                </div>
+            </HoverCardContent>
+        </HoverCard>
     );
 }
 
@@ -140,6 +276,7 @@ function NewCampaignDialog({
     useEffect(() => {
         if (state?.success) {
             queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+            queryClient.invalidateQueries({ queryKey: ["campaign-status-counts"] });
             queryClient.invalidateQueries({ queryKey: ["campaign-stats"] });
             const timer = window.setTimeout(() => setOpen(false), 0);
             return () => window.clearTimeout(timer);
@@ -376,6 +513,7 @@ function EditCampaignDialog({
         onSuccess: (result) => {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+                queryClient.invalidateQueries({ queryKey: ["campaign-status-counts"] });
                 onOpenChange(false);
             } else {
                 setErrors(result.errors);
@@ -540,35 +678,54 @@ function EditCampaignDialog({
 type TabValue = "all" | Lowercase<CampaignStatus>;
 
 export default function CampaignsPage() {
+    const { activeWorkspace } = useAuth();
+    const workspaceId = activeWorkspace?.id;
     const [tab, setTab] = useState<TabValue>("all");
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState("newest");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
     const [editingCampaign, setEditingCampaign] = useState<CampaignItem_ | null>(null);
     const queryClient = useQueryClient();
+    const deferredSearch = useDeferredValue(search);
 
-    useMessagesRealtime(); // live update for campaign delivery stats
+    useMessagesRealtime({ workspaceId }); // live update for campaign delivery stats
 
-    const { data: segments } = useQuery(getSegmentsOption());
-    const { data: templatesData } = useQuery(getTemplatesOption());
-    const { data: campaigns } = useQuery(getCampaignOption());
-    const { data: stats } = useQuery(getCampaignStatsOption());
+    const { data: segments } = useQuery(getSegmentsOption(workspaceId));
+    const { data: templatesData } = useQuery(getTemplatesOption(workspaceId));
+    const { data: campaignPage, isFetching: isFetchingCampaigns } = useQuery(
+        getCampaignPageOption({
+            workspaceId,
+            page,
+            pageSize,
+            tab,
+            search: deferredSearch,
+            sort,
+        })
+    );
+    const { data: statusCounts } = useQuery(getCampaignStatusCountsOption(workspaceId));
+    const { data: stats } = useQuery(getCampaignStatsOption(workspaceId));
+    const campaigns = useMemo(() => (campaignPage?.data ?? []) as CampaignItem_[], [campaignPage?.data]);
+    const totalCampaigns = campaignPage?.count ?? 0;
+    const pageCount = Math.max(1, Math.ceil(totalCampaigns / pageSize));
+    const pageStart = totalCampaigns === 0 ? 0 : (page - 1) * pageSize + 1;
+    const pageEnd = Math.min(page * pageSize, totalCampaigns);
 
     const statsMap = useMemo(() => stats ?? {}, [stats]);
+    const counts: Record<string, number> = useMemo(
+        () => statusCounts ?? { all: totalCampaigns },
+        [statusCounts, totalCampaigns]
+    );
     const totalsByStatus = useMemo(() => {
-        const acc = { total: 0, running: 0, attempted: 0, inProgress: 0, delivered: 0, failed: 0 };
-        (campaigns ?? []).forEach((c: CampaignItem_) => {
-            acc.total += 1;
-            if (c.status === "Running") acc.running += 1;
-            const s = statsMap[c.id];
-            if (s) {
-                acc.attempted += s.total;
-                acc.inProgress += s.pending + s.queued + s.sent;
-                acc.delivered += s.delivered;
-                acc.failed += s.failed;
-            }
+        const acc = { total: counts.all ?? 0, attempted: 0, inProgress: 0, delivered: 0, failed: 0 };
+        Object.values(statsMap).forEach((s) => {
+            acc.attempted += s.total;
+            acc.inProgress += s.pending + s.queued + s.sent;
+            acc.delivered += s.delivered;
+            acc.failed += s.failed;
         });
         return acc;
-    }, [campaigns, statsMap]);
+    }, [counts, statsMap]);
     const avgDelivery = totalsByStatus.attempted
         ? Math.round((totalsByStatus.delivered / totalsByStatus.attempted) * 100)
         : 0;
@@ -583,56 +740,47 @@ export default function CampaignsPage() {
         { label: "In Progress", value: totalsByStatus.inProgress.toLocaleString(), sub: `${totalsByStatus.failed} failed` },
     ];
 
-    const filtered = useMemo(() => {
-        const items = [...(campaigns ?? [])] as CampaignItem_[];
-        let list = items;
-        if (tab !== "all") {
-            list = list.filter((c) => (c.status ?? "Draft").toLowerCase() === tab);
-        }
-        if (search.trim()) {
-            const q = search.toLowerCase();
-            list = list.filter(
-                (c) =>
-                    c.campaign_name.toLowerCase().includes(q) ||
-                    c.segments?.name?.toLowerCase().includes(q) ||
-                    c.templates?.template_name?.toLowerCase().includes(q) ||
-                    c.message_body?.toLowerCase().includes(q)
-            );
-        }
-        if (sort === "newest") list.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
-        if (sort === "oldest") list.sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
-        if (sort === "sent") {
-            list.sort((a, b) => (statsMap[b.id]?.total ?? 0) - (statsMap[a.id]?.total ?? 0));
-        }
-        return list;
-    }, [campaigns, statsMap, tab, search, sort]);
-
-    const counts: Record<string, number> = useMemo(() => {
-        const map: Record<string, number> = { all: campaigns?.length ?? 0 };
-        (campaigns ?? []).forEach((c: CampaignItem_) => {
-            const k = (c.status ?? "Draft").toLowerCase();
-            map[k] = (map[k] ?? 0) + 1;
-        });
-        return map;
-    }, [campaigns]);
+    const tableItems = campaigns;
 
     const sendCampaign = useMutation({
         mutationFn: (campaignId: number) => send_campaign(campaignId),
         onSettled: async () => {
             await queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+            await queryClient.invalidateQueries({ queryKey: ["campaign-status-counts"] });
             await queryClient.invalidateQueries({ queryKey: ["campaign-stats"] });
         },
     });
 
     const handleDeleteCampaign = useMutation({
         mutationFn: async (id: number) => {
-            const { error } = await supabase.from("campaigns").delete().eq("id", id);
-            if (error) throw new Error(error.message);
+            const result = await delete_campaign(id);
+            if (!result.success) throw new Error(result.error ?? "Delete failed");
         },
         onSettled: async () => {
             await queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+            await queryClient.invalidateQueries({ queryKey: ["campaign-status-counts"] });
         },
     });
+
+    function handleTabChange(value: string) {
+        setTab(value as TabValue);
+        setPage(1);
+    }
+
+    function handleSearchChange(event: React.ChangeEvent<HTMLInputElement>) {
+        setSearch(event.target.value);
+        setPage(1);
+    }
+
+    function handleSortChange(value: string) {
+        setSort(value);
+        setPage(1);
+    }
+
+    function handlePageSizeChange(value: string) {
+        setPageSize(Number(value));
+        setPage(1);
+    }
 
     return (
         <DashboardLayout>
@@ -671,7 +819,7 @@ export default function CampaignsPage() {
 
                 <Card className="gap-0 overflow-hidden py-0">
                     <div className="flex flex-col gap-3 border-b px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-                        <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
+                        <Tabs value={tab} onValueChange={handleTabChange}>
                             <TabsList className="h-8">
                                 {(
                                     [
@@ -699,13 +847,13 @@ export default function CampaignsPage() {
                             <div className="relative">
                                 <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search campaigns…"
+                                    placeholder="Search campaigns..."
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={handleSearchChange}
                                     className="h-8 w-48 pl-8 text-xs"
                                 />
                             </div>
-                            <Select value={sort} onValueChange={setSort}>
+                            <Select value={sort} onValueChange={handleSortChange}>
                                 <SelectTrigger className="h-8 w-36 text-xs">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -719,7 +867,7 @@ export default function CampaignsPage() {
                     </div>
 
                     <CardContent className="p-0">
-                        {filtered.length === 0 ? (
+                        {tableItems.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
                                 <Search className="size-8 opacity-30" />
                                 <p className="text-sm font-medium">No campaigns found</p>
@@ -766,7 +914,7 @@ export default function CampaignsPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filtered.map((item: CampaignItem_) => {
+                                    {tableItems.map((item: CampaignItem_) => {
                                         const s = statsMap[item.id];
                                         const total = s?.total ?? 0;
                                         const queued = s?.queued ?? 0;
@@ -785,12 +933,10 @@ export default function CampaignsPage() {
                                                     </p>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="secondary" className="font-normal">
-                                                        {item.segments?.name ?? "—"}
-                                                    </Badge>
+                                                    <CampaignAudienceCell segment={item.segments} workspaceId={workspaceId} />
                                                 </TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">
-                                                    {item.templates?.template_name ?? (item.message_body ? "Custom message" : "—")}
+                                                    <CampaignMessageCell campaign={item} />
                                                 </TableCell>
                                                 <TableCell className="tabular-nums text-muted-foreground">
                                                     {formatCount(total)}
@@ -877,6 +1023,51 @@ export default function CampaignsPage() {
                             </Table>
                         )}
                     </CardContent>
+                    <div className="flex flex-col gap-3 border-t px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                            <span>Rows per page</span>
+                            <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="h-8 w-20 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PAGE_SIZE_OPTIONS.map((value) => (
+                                        <SelectItem key={value} value={String(value)}>
+                                            {value}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <span className="tabular-nums">
+                                {isFetchingCampaigns ? "Updating..." : `Showing ${pageStart}-${pageEnd} of ${totalCampaigns}`}
+                            </span>
+                            <span className="tabular-nums">
+                                Page {page} of {pageCount}
+                            </span>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="Previous page"
+                                    disabled={page <= 1 || isFetchingCampaigns}
+                                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                                >
+                                    <ChevronLeft className="size-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="Next page"
+                                    disabled={page >= pageCount || isFetchingCampaigns}
+                                    onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                                >
+                                    <ChevronRight className="size-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 </Card>
             </div>
 

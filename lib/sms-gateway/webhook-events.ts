@@ -4,21 +4,21 @@ import type { WebhookEvent } from './types'
 type Admin = SupabaseClient
 
 /**
- * Apply a webhook event to the messages table for a given user.
- * - Outbound lifecycle events update an existing row keyed by (user_id, gateway_message_id).
+ * Apply a webhook event to the messages table for a given workspace.
+ * - Outbound lifecycle events update an existing row keyed by (workspace_id, gateway_message_id).
  *   If no row exists yet (e.g. send happened before the row was inserted), the row is created.
  * - Inbound events insert a new row with direction='inbound'.
  * - system:ping is recorded only on the dedupe table (no message row).
  */
 export async function applyWebhookEvent(
     admin: Admin,
-    userId: string,
+    workspaceId: string,
     evt: WebhookEvent
 ): Promise<{ table: 'messages' | 'none'; action: 'insert' | 'update' | 'skip' }> {
     switch (evt.event) {
         case 'sms:sent': {
             const { messageId, recipient, simNumber, partsCount, sentAt } = evt.payload
-            await upsertOutbound(admin, userId, messageId, {
+            await upsertOutbound(admin, workspaceId, messageId, {
                 status: 'sent',
                 sent_at: sentAt,
                 phone_no: recipient,
@@ -29,7 +29,7 @@ export async function applyWebhookEvent(
         }
         case 'sms:delivered': {
             const { messageId, recipient, simNumber, deliveredAt } = evt.payload
-            await upsertOutbound(admin, userId, messageId, {
+            await upsertOutbound(admin, workspaceId, messageId, {
                 status: 'delivered',
                 delivered_at: deliveredAt,
                 phone_no: recipient,
@@ -39,7 +39,7 @@ export async function applyWebhookEvent(
         }
         case 'sms:failed': {
             const { messageId, recipient, simNumber, reason, failedAt } = evt.payload
-            await upsertOutbound(admin, userId, messageId, {
+            await upsertOutbound(admin, workspaceId, messageId, {
                 status: 'failed',
                 failed_at: failedAt,
                 error_reason: reason,
@@ -50,7 +50,7 @@ export async function applyWebhookEvent(
         }
         case 'sms:received': {
             const { messageId, message, sender, simNumber, receivedAt } = evt.payload
-            await insertInbound(admin, userId, {
+            await insertInbound(admin, workspaceId, {
                 gateway_message_id: messageId ?? null,
                 phone_no: sender,
                 body: message,
@@ -61,7 +61,7 @@ export async function applyWebhookEvent(
         }
         case 'sms:data-received': {
             const { messageId, data, sender, simNumber, receivedAt } = evt.payload
-            await insertInbound(admin, userId, {
+            await insertInbound(admin, workspaceId, {
                 gateway_message_id: messageId ?? null,
                 phone_no: sender,
                 body: '',
@@ -74,7 +74,7 @@ export async function applyWebhookEvent(
         case 'mms:received':
         case 'mms:downloaded': {
             const { messageId, subject, sender, simNumber, receivedAt, transactionId } = evt.payload
-            await insertInbound(admin, userId, {
+            await insertInbound(admin, workspaceId, {
                 gateway_message_id: messageId ?? null,
                 phone_no: sender,
                 body: '',
@@ -105,7 +105,7 @@ type OutboundUpdate = {
 
 async function upsertOutbound(
     admin: Admin,
-    userId: string,
+    workspaceId: string,
     gatewayMessageId: string,
     patch: OutboundUpdate
 ) {
@@ -114,7 +114,7 @@ async function upsertOutbound(
     let existingQuery = admin
         .from('messages')
         .select('id, status')
-        .eq('user_id', userId)
+        .eq('workspace_id', workspaceId)
         .eq('gateway_message_id', gatewayMessageId)
         .order('created_at', { ascending: true })
         .limit(1)
@@ -148,7 +148,8 @@ async function upsertOutbound(
     // Late webhook: the gateway acknowledged the send before we wrote the row.
     // Create a minimal placeholder so the status is captured.
     await admin.from('messages').insert({
-        user_id: userId,
+        workspace_id: workspaceId,
+        user_id: null,
         direction: 'outbound',
         phone_no: patch.phone_no ?? '',
         body: '',
@@ -174,9 +175,10 @@ type InboundInsert = {
     metadata?: Record<string, unknown>
 }
 
-async function insertInbound(admin: Admin, userId: string, row: InboundInsert) {
+async function insertInbound(admin: Admin, workspaceId: string, row: InboundInsert) {
     await admin.from('messages').insert({
-        user_id: userId,
+        workspace_id: workspaceId,
+        user_id: null,
         direction: 'inbound',
         phone_no: row.phone_no,
         body: row.body,

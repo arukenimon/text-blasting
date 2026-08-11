@@ -29,7 +29,7 @@ function LoginForm() {
             return;
         }
 
-        const redirectTo = searchParams.get("redirectTo") ?? "/admin";
+        const redirectTo = searchParams.get("redirectTo") ?? "/admin/dashboard";
         router.push(redirectTo);
         router.refresh();
     }

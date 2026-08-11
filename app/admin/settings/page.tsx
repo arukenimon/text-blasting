@@ -1,16 +1,29 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Smartphone, XCircle } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, Smartphone, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardLayout } from "../../components/dashboard/dashboard-layout";
 import { reregister_webhooks, update_password, update_sms_gateway } from "./actions";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/components/auth-provider";
+import {
+    canManageWorkspace,
+    getWorkspaceGatewayOption,
+    getWorkspaceTeamOption,
+} from "../workspaces/QueryOptions";
+import { invite_workspace_member } from "../workspaces/actions";
 
 type ActionState = {
     success: boolean;
@@ -84,24 +97,30 @@ function SecurityTab() {
 type ConnectionResult = { ok: boolean; mode?: string; error?: string; status?: number } | null;
 
 function SmsTab() {
-    const { profile } = useAuth();
+    const { activeWorkspace, activeRole } = useAuth();
+    const workspaceId = activeWorkspace?.id;
+    const canManage = canManageWorkspace(activeRole);
     const queryClient = useQueryClient();
     const [state, action, pending] = useActionState(update_sms_gateway, initialState);
-    const [mode, setMode] = useState<"local" | "cloud">(profile?.mode ?? "cloud");
+    const [inviteState, inviteAction, invitePending] = useActionState(invite_workspace_member, initialState);
+    const { data: profile } = useQuery(getWorkspaceGatewayOption(canManage ? workspaceId : null));
+    const { data: team } = useQuery(getWorkspaceTeamOption(canManage ? workspaceId : null));
     const [testing, setTesting] = useState(false);
     const [reregistering, setReregistering] = useState(false);
     const [testResult, setTestResult] = useState<ConnectionResult>(null);
     const [reregMessage, setReregMessage] = useState<string | null>(null);
 
     useEffect(() => {
-        if (profile?.mode && profile.mode !== mode) setMode(profile.mode);
-    }, [profile?.mode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
         if (state?.success) {
-            queryClient.invalidateQueries({ queryKey: ["profile"] });
+            queryClient.invalidateQueries({ queryKey: ["workspace-gateway"] });
         }
     }, [state, queryClient]);
+
+    useEffect(() => {
+        if (inviteState?.success) {
+            queryClient.invalidateQueries({ queryKey: ["workspace-team"] });
+        }
+    }, [inviteState, queryClient]);
 
     const handleTestConnection = async () => {
         setTesting(true);
@@ -125,7 +144,7 @@ function SmsTab() {
                 ? "Webhooks re-registered successfully."
                 : `Re-register completed with warnings: ${out.warnings.join("; ")}`
         );
-        await queryClient.invalidateQueries({ queryKey: ["profile"] });
+        await queryClient.invalidateQueries({ queryKey: ["workspace-gateway"] });
         setReregistering(false);
     };
 
@@ -134,39 +153,29 @@ function SmsTab() {
         : "—";
     const registeredCount = Object.keys(profile?.webhook_registrations ?? {}).length;
 
+    if (!activeWorkspace) {
+        return (
+            <Section title="Workspace settings" description="Loading active workspace.">
+                <p className="text-sm text-muted-foreground">Workspace context is loading.</p>
+            </Section>
+        );
+    }
+
+    if (!canManage) {
+        return (
+            <Section
+                title="Workspace settings"
+                description="Gateway credentials, webhooks, and team management are available to owners and admins."
+            >
+                <p className="text-sm text-muted-foreground">
+                    Your role in {activeWorkspace?.name ?? "this workspace"} is member.
+                </p>
+            </Section>
+        );
+    }
+
     return (
         <form action={action} className="space-y-4">
-            <Section title="Gateway mode" description="Where this app should send messages and accept webhook events from.">
-                <input type="hidden" name="mode" value={mode} />
-                <div className="grid grid-cols-2 gap-3">
-                    {(["cloud", "local"] as const).map((m) => (
-                        <button
-                            key={m}
-                            type="button"
-                            onClick={() => setMode(m)}
-                            className={`text-left rounded-lg border p-3 transition ${
-                                mode === m ? "border-primary bg-primary/5" : "hover:bg-muted/40"
-                            }`}
-                        >
-                            <p className="text-sm font-medium capitalize">{m}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                {m === "cloud" ? "Send via api.sms-gate.app" : "Send via your phone on LAN/Internet"}
-                            </p>
-                        </button>
-                    ))}
-                </div>
-                {mode === "local" && (
-                    <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-                        <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-                        <p>
-                            Local mode requires your phone&apos;s gateway to be reachable from this Vercel server.
-                            Use a port-forward, Tailscale, ngrok, or Cloudflare Tunnel and put that public URL in
-                            <strong> Public address</strong> below.
-                        </p>
-                    </div>
-                )}
-            </Section>
-
             <Section title="SIM card" description="Which SIM slot should be used to send messages.">
                 <Field label="SIM slot" error={state.errors.sim_slot?.[0]}>
                     <div className="flex gap-3">
@@ -187,7 +196,7 @@ function SmsTab() {
             </Section>
 
             <Section
-                title="Cloud server"
+                title="SMS Gateway cloud server"
                 description="Credentials from the SMS Gateway app's Cloud server section."
             >
                 <Field label="Server address" error={state.errors.cloud_address?.[0]}>
@@ -218,46 +227,8 @@ function SmsTab() {
             </Section>
 
             <Section
-                title="Local server"
-                description="Credentials from the SMS Gateway app's Local server section."
-            >
-                <Field label="Local address" error={state.errors.local_address?.[0]}>
-                    <Input
-                        name="local_address"
-                        placeholder="192.168.1.40:8080"
-                        defaultValue={profile?.local_server?.local_address}
-                    />
-                </Field>
-                <Field label="Public address (required for Local mode)" error={state.errors.public_address?.[0]}>
-                    <Input
-                        name="public_address"
-                        placeholder="49.145.212.34:8080 or your-tunnel-url"
-                        defaultValue={profile?.local_server?.public_address}
-                    />
-                </Field>
-                <Separator />
-                <Field label="Username" error={state.errors.local_username?.[0]}>
-                    <Input
-                        name="local_username"
-                        placeholder="admin"
-                        autoComplete="off"
-                        defaultValue={profile?.local_server?.username}
-                    />
-                </Field>
-                <Field label="Password" error={state.errors.local_password?.[0]}>
-                    <Input
-                        name="local_password"
-                        type="password"
-                        placeholder="Password"
-                        autoComplete="new-password"
-                        defaultValue={profile?.local_server?.password}
-                    />
-                </Field>
-            </Section>
-
-            <Section
                 title="Webhook"
-                description="The SMS gateway pushes events to this URL. It is unique per user."
+                description="The SMS gateway pushes events to this URL. It is unique per workspace."
             >
                 <Field label="Your webhook URL">
                     <Input value={webhookPreview} readOnly className="font-mono text-xs" />
@@ -297,6 +268,70 @@ function SmsTab() {
                     </p>
                 )}
                 {reregMessage && <p className="text-xs text-muted-foreground">{reregMessage}</p>}
+            </Section>
+
+            <Section
+                title="Team"
+                description="Invite members into this workspace and review current access."
+            >
+                <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
+                    <Field label="Invite email" error={inviteState.errors.email?.[0]}>
+                        <Input name="email" type="email" placeholder="member@example.com" />
+                    </Field>
+                    <Field label="Role" error={inviteState.errors.role?.[0]}>
+                        <Select name="role" defaultValue="member">
+                            <SelectTrigger className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="member">Member</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </Field>
+                    <div className="flex items-end">
+                        <Button type="submit" size="sm" disabled={invitePending} formAction={inviteAction}>
+                            {invitePending ? "Sending..." : "Send invite"}
+                        </Button>
+                    </div>
+                </div>
+                {inviteState.errors.form?.[0] && (
+                    <p className="text-xs text-destructive">{inviteState.errors.form[0]}</p>
+                )}
+                {inviteState.success && (
+                    <p className="text-xs text-emerald-600">Invite email sent.</p>
+                )}
+
+                <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        Members
+                    </p>
+                    {(team?.members ?? []).map((member) => (
+                        <div key={member.user_id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                            <span className="truncate text-sm">{member.user_email ?? member.user_id}</span>
+                            <span className="text-xs font-medium capitalize text-muted-foreground">{member.role}</span>
+                        </div>
+                    ))}
+                    {(team?.members ?? []).length === 0 && (
+                        <p className="text-xs text-muted-foreground">No members loaded yet.</p>
+                    )}
+                </div>
+
+                {(team?.invitations ?? []).length > 0 && (
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                            Invitations
+                        </p>
+                        {team!.invitations.map((invite) => (
+                            <div key={invite.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                                <span className="truncate text-sm">{invite.email}</span>
+                                <span className="text-xs capitalize text-muted-foreground">
+                                    {invite.role} · {invite.status}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </Section>
 
             {state.errors._?.[0] && <p className="text-sm text-destructive">{state.errors._[0]}</p>}

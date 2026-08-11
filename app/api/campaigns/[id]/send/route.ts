@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
-import { chunkPhoneNumbers, getGatewayClientForUser, sleep } from '@/lib/sms-gateway'
+import { chunkPhoneNumbers, getGatewayClientForWorkspace, sleep } from '@/lib/sms-gateway'
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60 // Vercel Hobby max
@@ -46,13 +47,23 @@ export async function POST(
 
     // ── Resolve acting user ────────────────────────────────────────────────
     let userId: string | null = null
+    let workspaceId: string | null = null
+    let isCron = false
     const cronToken = request.headers.get('authorization')
     if (cronToken && process.env.CRON_SECRET && cronToken === `Bearer ${process.env.CRON_SECRET}`) {
+        isCron = true
         userId = request.headers.get('x-cron-user')
+        workspaceId = request.headers.get('x-cron-workspace')
     } else {
-        const session = await createClient()
-        const { data: { user } } = await session.auth.getUser()
-        userId = user?.id ?? null
+        try {
+            const context = await requireWorkspaceRole('member')
+            userId = context.userId
+            workspaceId = context.workspace.id
+        } catch {
+            const session = await createClient()
+            const { data: { user } } = await session.auth.getUser()
+            userId = user?.id ?? null
+        }
     }
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
@@ -67,18 +78,22 @@ export async function POST(
 
     type CampaignWithRelations = {
         id: number
+        workspace_id: string
         user_id: string | null
         status: string
         message_body: string | null
         templates: { id: string; template_name: string; body: string } | { id: string; template_name: string; body: string }[] | null
-        segments: { id: string; name: string; contacts: RawContact[] } | { id: string; name: string; contacts: RawContact[] }[] | null
+        segments:
+            | { id: string; name: string; workspace_id: string; contacts: (RawContact & { workspace_id?: string | null })[] }
+            | { id: string; name: string; workspace_id: string; contacts: (RawContact & { workspace_id?: string | null })[] }[]
+            | null
     }
     const { data: campaignRaw, error: campaignErr } = await admin
         .from('campaigns')
         .select(
-            'id, campaign_name, segment_id, template_id, status, user_id, message_body, ' +
+            'id, workspace_id, campaign_name, segment_id, template_id, status, user_id, message_body, ' +
             'templates(id, template_name, body), ' +
-            'segments(id, name, contacts(id, full_name, phone_no, status))'
+            'segments(id, name, workspace_id, contacts(id, workspace_id, full_name, phone_no, status))'
         )
         .eq('id', campaignIdNum)
         .single()
@@ -87,8 +102,15 @@ export async function POST(
     if (campaignErr || !campaign) {
         return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
-    if (campaign.user_id && campaign.user_id !== userId) {
+    if (!isCron && campaign.workspace_id !== workspaceId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (isCron && workspaceId && workspaceId !== campaign.workspace_id) {
+        return NextResponse.json({ error: 'Cron workspace does not match campaign' }, { status: 400 })
+    }
+    workspaceId = workspaceId ?? campaign.workspace_id
+    if (!workspaceId) {
+        return NextResponse.json({ error: 'Campaign has no workspace_id' }, { status: 400 })
     }
     if (campaign.status === 'Running' || campaign.status === 'Completed') {
         return NextResponse.json(
@@ -99,12 +121,16 @@ export async function POST(
 
     const template = Array.isArray(campaign.templates) ? campaign.templates[0] : campaign.templates
     const segment = Array.isArray(campaign.segments) ? campaign.segments[0] : campaign.segments
+    if (segment?.workspace_id && segment.workspace_id !== campaign.workspace_id) {
+        return NextResponse.json({ error: 'Campaign segment belongs to another workspace' }, { status: 400 })
+    }
     const messageBody = campaign.message_body?.trim() || template?.body || ''
     if (!messageBody) {
         return NextResponse.json({ error: 'Message missing or empty' }, { status: 400 })
     }
 
     const allContacts: Contact[] = (segment?.contacts ?? [])
+        .filter((c) => !c.workspace_id || c.workspace_id === campaign.workspace_id)
         .filter((c) => c.status !== 'Opted Out')
         .map(normalizeContact)
         .filter((c) => c.phone_no.length > 0)
@@ -117,7 +143,7 @@ export async function POST(
     // ── Load gateway client for this user ──────────────────────────────────
     let gateway, profile
     try {
-        const out = await getGatewayClientForUser(userId)
+        const out = await getGatewayClientForWorkspace(workspaceId!)
         gateway = out.client
         profile = out.profile
     } catch (err) {
@@ -157,6 +183,7 @@ export async function POST(
 
             // Pre-insert pending rows so the UI can show them before the gateway responds
             const pendingRows = recipients.map((r, idx) => ({
+                workspace_id: workspaceId!,
                 user_id: userId!,
                 campaign_id: campaignIdNum,
                 contact_id: r.id,
@@ -213,8 +240,7 @@ export async function POST(
             }
         }
 
-        // Be a polite client; the local gateway in particular needs breathing room
-        await sleep(profile.mode === 'local' ? 500 : 200)
+        await sleep(200)
     }
 
     // Final campaign status

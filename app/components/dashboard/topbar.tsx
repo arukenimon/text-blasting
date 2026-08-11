@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const pageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
     "/admin": {
@@ -57,6 +58,8 @@ export function Topbar() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                    <WorkspaceSwitcher compact />
+
                     <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input

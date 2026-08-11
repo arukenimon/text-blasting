@@ -1,33 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import {
     ALL_WEBHOOK_EVENTS,
     GatewayNotConfiguredError,
-    LOCAL_SUPPORTED_EVENTS,
     buildWebhookUrl,
-    getGatewayClientForUser,
+    getGatewayClientForWorkspace,
     sleep,
 } from '@/lib/sms-gateway'
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /**
- * Register webhooks for the authenticated user.
+ * Register webhooks for the active workspace.
  * Workflow:
- *  1. Load this user's gateway client + profile (mode/credentials/token).
+ *  1. Load the workspace gateway client + settings (mode/credentials/token).
  *  2. Delete every existing webhook on the gateway to avoid orphans.
  *  3. Register the relevant events pointed at /api/webhooks/{token}.
- *  4. Persist the returned IDs onto profile.webhook_registrations.
+ *  4. Persist the returned IDs onto workspace_sms_gateway.webhook_registrations.
  */
 export async function POST(request: NextRequest) {
-    const session = await createClient()
-    const { data: { user } } = await session.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return NextResponse.json(
+            { error: err instanceof Error ? err.message : 'Not authorized' },
+            { status: 403 }
+        )
+    }
 
     let gateway, profile
     try {
-        ({ client: gateway, profile } = await getGatewayClientForUser(user.id))
+        ({ client: gateway, profile } = await getGatewayClientForWorkspace(context.workspace.id))
     } catch (err) {
         if (err instanceof GatewayNotConfiguredError) {
             return NextResponse.json({ error: err.message }, { status: 400 })
@@ -41,17 +47,15 @@ export async function POST(request: NextRequest) {
         profile.webhook_token
     )
 
-    const events = profile.mode === 'local' ? LOCAL_SUPPORTED_EVENTS : ALL_WEBHOOK_EVENTS
-
     // Clear stale registrations to avoid orphan webhooks on the gateway side
     await gateway.clearAllWebhooks().catch(() => 0)
 
     const registrations: Record<string, string> = {}
     const failures: Record<string, string> = {}
-    for (const event of events) {
+    for (const event of ALL_WEBHOOK_EVENTS) {
         try {
             const reg = await gateway.registerWebhook(webhookUrl, event, {
-                id: `${profile.user_id.slice(0, 8)}-${event.replace(':', '-')}`,
+                id: `${profile.workspace_id.slice(0, 8)}-${event.replace(':', '-')}`,
             })
             registrations[event] = reg.id
         } catch (err) {
@@ -62,9 +66,9 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient()
     await admin
-        .from('profile')
+        .from('workspace_sms_gateway')
         .update({ webhook_registrations: registrations })
-        .eq('id', user.id)
+        .eq('workspace_id', context.workspace.id)
 
     const allOk = Object.keys(failures).length === 0
     return NextResponse.json(

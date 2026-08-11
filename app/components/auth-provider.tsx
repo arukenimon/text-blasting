@@ -12,24 +12,14 @@ import { type Session, type User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getProfileOption } from "../admin/settings/QueryOptions";
+import {
+  getWorkspaceContextOption,
+  type WorkspaceOption,
+  type WorkspaceRole,
+} from "../admin/workspaces/QueryOptions";
 
-type GatewayProfile = {
-  mode?: "local" | "cloud";
-  local_server?: {
-    local_address?: string;
-    public_address?: string;
-    username?: string;
-    password?: string;
-  } | null;
-  cloud_server?: {
-    server_address?: string;
-    username?: string;
-    password?: string;
-  } | null;
-  sim_slot?: number | string | null;
-  webhook_token?: string | null;
-  webhook_registrations?: Record<string, unknown> | null;
+type ProfileContext = {
+  active_workspace_id?: string | null;
 } | null;
 
 interface AuthContextValue {
@@ -38,7 +28,10 @@ interface AuthContextValue {
   /** True while the initial session is being resolved. */
   loading: boolean;
   signOut: () => Promise<void>;
-  profile: GatewayProfile;
+  profile: ProfileContext;
+  workspaces: WorkspaceOption[];
+  activeWorkspace: WorkspaceOption | null;
+  activeRole: WorkspaceRole | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -76,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const { data: profile } = useQuery(getProfileOption()) as { data: GatewayProfile };
+  const { data: workspaceContext } = useQuery(getWorkspaceContextOption(user?.id));
 
 
   const signOut = useCallback(async () => {
@@ -85,7 +78,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, loading, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile: workspaceContext?.profile ?? null,
+        workspaces: workspaceContext?.workspaces ?? [],
+        activeWorkspace: workspaceContext?.activeWorkspace ?? null,
+        activeRole: workspaceContext?.activeRole ?? null,
+        session,
+        loading,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 import { navItems } from "./dashboard-data";
 import { Sidebar } from "./sidebar";
 import Link from "next/link";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -19,6 +20,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                 </p>
                                 <p className="text-sm font-semibold">Text Blasting</p>
                             </div>
+                        </div>
+                        <div className="mb-3">
+                            <WorkspaceSwitcher compact />
                         </div>
                         <nav className="flex gap-2 overflow-x-auto pb-1">
                             {navItems

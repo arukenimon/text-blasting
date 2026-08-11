@@ -2,6 +2,7 @@
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { SignupFormSchema, SegmentFormSchema } from './schema'
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 const NEW_SEGMENT_VALUE = '__new_segment__'
 
@@ -135,8 +136,24 @@ export async function bulk_import_contacts(
     if (!contacts.length) return { success: false, error: 'No contacts to import' }
 
     const supabase = createAdminClient()
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Not authorized' }
+    }
+
+    const { data: segment } = await supabase
+        .from('segments')
+        .select('id')
+        .eq('id', segment_id)
+        .eq('workspace_id', context.workspace.id)
+        .maybeSingle()
+
+    if (!segment) return { success: false, error: 'Selected segment does not exist in this workspace' }
 
     const rows = contacts.map((c) => ({
+        workspace_id: context.workspace.id,
         full_name: c.full_name,
         phone_no: c.phone_no,
         segment_id,
@@ -154,8 +171,53 @@ export async function delete_contacts(
 ): Promise<{ success: boolean; error?: string }> {
     if (!ids.length) return { success: false, error: 'No contacts specified' }
     const supabase = createAdminClient()
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Not authorized' }
+    }
 
-    const { error } = await supabase.from('contacts').delete().in('id', ids)
+    const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('workspace_id', context.workspace.id)
+        .in('id', ids)
+    if (error) return { success: false, error: error.message }
+
+    return { success: true }
+}
+
+export async function move_contacts(
+    ids: string[],
+    segment_id: string
+): Promise<{ success: boolean; error?: string }> {
+    if (!ids.length) return { success: false, error: 'No contacts specified' }
+    if (!segment_id) return { success: false, error: 'Segment is required' }
+
+    const supabase = createAdminClient()
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Not authorized' }
+    }
+
+    const { data: segment } = await supabase
+        .from('segments')
+        .select('id')
+        .eq('id', segment_id)
+        .eq('workspace_id', context.workspace.id)
+        .maybeSingle()
+
+    if (!segment) return { success: false, error: 'Selected segment does not exist in this workspace' }
+
+    const { error } = await supabase
+        .from('contacts')
+        .update({ segment_id })
+        .eq('workspace_id', context.workspace.id)
+        .in('id', ids)
+
     if (error) return { success: false, error: error.message }
 
     return { success: true }

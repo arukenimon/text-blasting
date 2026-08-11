@@ -1,14 +1,9 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { CreateCampaignSchema } from './schema'
-
-async function getCurrentUserId(): Promise<string | null> {
-    const session = await createClient()
-    const { data: { user } } = await session.auth.getUser()
-    return user?.id ?? null
-}
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 export async function add_campaign(_prevState: unknown, formData: FormData) {
     const supabase = createAdminClient()
@@ -30,12 +25,23 @@ export async function add_campaign(_prevState: unknown, formData: FormData) {
         }
     }
 
-    const userId = await getCurrentUserId()
-    if (!userId) {
+    let context
+    try {
+        context = await requireWorkspaceRole('member')
+    } catch (err) {
         return {
             success: false as const,
-            errors: { form: ['Not authenticated.'] } as Record<string, string[]>,
+            errors: { form: [err instanceof Error ? err.message : 'Not authorized.'] } as Record<string, string[]>,
         }
+    }
+
+    const relationErr = await validateCampaignRelations(
+        context.workspace.id,
+        validatedFields.data.segment_id,
+        validatedFields.data.template_id ?? null
+    )
+    if (relationErr) {
+        return { success: false as const, errors: { form: [relationErr] } as Record<string, string[]> }
     }
 
     const sendImmediately = validatedFields.data.send_immediately === 'true'
@@ -50,13 +56,14 @@ export async function add_campaign(_prevState: unknown, formData: FormData) {
         .from('campaigns')
         .insert({
             campaign_name: validatedFields.data.campaign_name,
+            workspace_id: context.workspace.id,
             segment_id: validatedFields.data.segment_id,
             template_id: validatedFields.data.template_id ?? null,
             message_body: validatedFields.data.message_mode === 'custom'
                 ? validatedFields.data.message_body
                 : null,
             scheduled_date: scheduledDate.toISOString(),
-            user_id: userId,
+            user_id: context.userId,
             status,
         })
         .select('id')
@@ -110,6 +117,25 @@ export async function update_campaign(id: string | number, formData: FormData) {
         }
     }
 
+    let context
+    try {
+        context = await requireWorkspaceRole('member')
+    } catch (err) {
+        return {
+            success: false as const,
+            errors: { form: [err instanceof Error ? err.message : 'Not authorized.'] } as Record<string, string[]>,
+        }
+    }
+
+    const relationErr = await validateCampaignRelations(
+        context.workspace.id,
+        validatedFields.data.segment_id,
+        validatedFields.data.template_id ?? null
+    )
+    if (relationErr) {
+        return { success: false as const, errors: { form: [relationErr] } as Record<string, string[]> }
+    }
+
     const sendImmediately = validatedFields.data.send_immediately === 'true'
     const scheduledDate = sendImmediately
         ? new Date()
@@ -127,6 +153,7 @@ export async function update_campaign(id: string | number, formData: FormData) {
             scheduled_date: scheduledDate.toISOString(),
         })
         .eq('id', id)
+        .eq('workspace_id', context.workspace.id)
 
     if (error) {
         return {
@@ -138,8 +165,11 @@ export async function update_campaign(id: string | number, formData: FormData) {
 }
 
 export async function send_campaign(id: string | number): Promise<{ ok: boolean; error?: string; result?: unknown }> {
-    const userId = await getCurrentUserId()
-    if (!userId) return { ok: false, error: 'Not authenticated' }
+    try {
+        await requireWorkspaceRole('member')
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Not authorized' }
+    }
 
     try {
         const result = await invokeCampaignSend(String(id))
@@ -147,6 +177,54 @@ export async function send_campaign(id: string | number): Promise<{ ok: boolean;
     } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : 'send failed' }
     }
+}
+
+export async function delete_campaign(id: string | number): Promise<{ success: boolean; error?: string }> {
+    const supabase = createAdminClient()
+    let context
+    try {
+        context = await requireWorkspaceRole('member')
+    } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Not authorized' }
+    }
+
+    const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', id)
+        .eq('workspace_id', context.workspace.id)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+}
+
+async function validateCampaignRelations(
+    workspaceId: string,
+    segmentId: string,
+    templateId: string | null
+): Promise<string | null> {
+    const supabase = createAdminClient()
+    const { data: segment } = await supabase
+        .from('segments')
+        .select('id')
+        .eq('id', segmentId)
+        .eq('workspace_id', workspaceId)
+        .maybeSingle()
+
+    if (!segment) return 'Selected segment does not exist in this workspace.'
+
+    if (templateId) {
+        const { data: template } = await supabase
+            .from('templates')
+            .select('id')
+            .eq('id', templateId)
+            .eq('workspace_id', workspaceId)
+            .maybeSingle()
+
+        if (!template) return 'Selected template does not exist in this workspace.'
+    }
+
+    return null
 }
 
 async function invokeCampaignSend(campaignId: string) {

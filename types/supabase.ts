@@ -53,6 +53,7 @@ export type Database = {
           template_id: string | null
           updated_at: string | null
           user_id: string | null
+          workspace_id: string
         }
         Insert: {
           campaign_name?: string | null
@@ -67,6 +68,7 @@ export type Database = {
           template_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          workspace_id: string
         }
         Update: {
           campaign_name?: string | null
@@ -81,6 +83,7 @@ export type Database = {
           template_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -108,6 +111,7 @@ export type Database = {
           segment_id: string | null
           status: string | null
           updated_at: string | null
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -117,6 +121,7 @@ export type Database = {
           segment_id?: string | null
           status?: string | null
           updated_at?: string | null
+          workspace_id: string
         }
         Update: {
           created_at?: string
@@ -126,6 +131,7 @@ export type Database = {
           segment_id?: string | null
           status?: string | null
           updated_at?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -140,36 +146,75 @@ export type Database = {
       messages: {
         Row: {
           campaign_id: number | null
+          contact_id: string | null
           created_at: string
+          body: string
+          delivered_at: string | null
+          direction: string
+          error_reason: string | null
+          failed_at: string | null
+          gateway_message_id: string | null
           id: string
-          message: string | null
-          message_id: string | null
+          media_url: string[] | null
+          metadata: Json
+          parts_count: number | null
+          phone_no: string
           received_at: string | null
-          sim_number: number | null
-          status: Database["public"]["Enums"]["message_status"] | null
+          sent_at: string | null
+          sim_slot: number | null
+          status: string
+          subject: string | null
           updated_at: string | null
+          user_id: string | null
+          workspace_id: string
         }
         Insert: {
           campaign_id?: number | null
+          contact_id?: string | null
           created_at?: string
+          body?: string
+          delivered_at?: string | null
+          direction: string
+          error_reason?: string | null
+          failed_at?: string | null
+          gateway_message_id?: string | null
           id?: string
-          message?: string | null
-          message_id?: string | null
+          media_url?: string[] | null
+          metadata?: Json
+          parts_count?: number | null
+          phone_no: string
           received_at?: string | null
-          sim_number?: number | null
-          status?: Database["public"]["Enums"]["message_status"] | null
+          sent_at?: string | null
+          sim_slot?: number | null
+          status: string
+          subject?: string | null
           updated_at?: string | null
+          user_id?: string | null
+          workspace_id: string
         }
         Update: {
           campaign_id?: number | null
+          contact_id?: string | null
           created_at?: string
+          body?: string
+          delivered_at?: string | null
+          direction?: string
+          error_reason?: string | null
+          failed_at?: string | null
+          gateway_message_id?: string | null
           id?: string
-          message?: string | null
-          message_id?: string | null
+          media_url?: string[] | null
+          metadata?: Json
+          parts_count?: number | null
+          phone_no?: string
           received_at?: string | null
-          sim_number?: number | null
-          status?: Database["public"]["Enums"]["message_status"] | null
+          sent_at?: string | null
+          sim_slot?: number | null
+          status?: string
+          subject?: string | null
           updated_at?: string | null
+          user_id?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -183,27 +228,21 @@ export type Database = {
       }
       profile: {
         Row: {
-          cloud_server: Json | null
+          active_workspace_id: string | null
           created_at: string
           id: string
-          local_server: Json | null
-          sim_slot: number | null
           updated_at: string | null
         }
         Insert: {
-          cloud_server?: Json | null
+          active_workspace_id?: string | null
           created_at?: string
           id?: string
-          local_server?: Json | null
-          sim_slot?: number | null
           updated_at?: string | null
         }
         Update: {
-          cloud_server?: Json | null
+          active_workspace_id?: string | null
           created_at?: string
           id?: string
-          local_server?: Json | null
-          sim_slot?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -216,6 +255,7 @@ export type Database = {
           id: string
           name: string | null
           updated_at: string | null
+          workspace_id: string
         }
         Insert: {
           color_hex?: string | null
@@ -224,6 +264,7 @@ export type Database = {
           id?: string
           name?: string | null
           updated_at?: string | null
+          workspace_id: string
         }
         Update: {
           color_hex?: string | null
@@ -232,6 +273,7 @@ export type Database = {
           id?: string
           name?: string | null
           updated_at?: string | null
+          workspace_id?: string
         }
         Relationships: []
       }
@@ -243,6 +285,7 @@ export type Database = {
           id: string
           template_name: string
           updated_at: string | null
+          workspace_id: string
         }
         Insert: {
           body: string
@@ -251,6 +294,7 @@ export type Database = {
           id?: string
           template_name: string
           updated_at?: string | null
+          workspace_id: string
         }
         Update: {
           body?: string
@@ -259,6 +303,163 @@ export type Database = {
           id?: string
           template_name?: string
           updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      workspaces: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          created_by: string | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      workspace_members: {
+        Row: {
+          workspace_id: string
+          user_id: string
+          user_email: string | null
+          role: string
+          joined_at: string
+        }
+        Insert: {
+          workspace_id: string
+          user_id: string
+          user_email?: string | null
+          role: string
+          joined_at?: string
+        }
+        Update: {
+          workspace_id?: string
+          user_id?: string
+          user_email?: string | null
+          role?: string
+          joined_at?: string
+        }
+        Relationships: []
+      }
+      workspace_invitations: {
+        Row: {
+          id: string
+          workspace_id: string
+          email: string
+          role: string
+          token: string
+          status: string
+          expires_at: string
+          invited_by: string | null
+          accepted_by: string | null
+          accepted_at: string | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          email: string
+          role: string
+          token?: string
+          status?: string
+          expires_at?: string
+          invited_by?: string | null
+          accepted_by?: string | null
+          accepted_at?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          email?: string
+          role?: string
+          token?: string
+          status?: string
+          expires_at?: string
+          invited_by?: string | null
+          accepted_by?: string | null
+          accepted_at?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      workspace_sms_gateway: {
+        Row: {
+          workspace_id: string
+          mode: string
+          sim_slot: number | null
+          local_server: Json | null
+          cloud_server: Json | null
+          webhook_token: string
+          webhook_secret: string
+          webhook_registrations: Json
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          workspace_id: string
+          mode?: string
+          sim_slot?: number | null
+          local_server?: Json | null
+          cloud_server?: Json | null
+          webhook_token?: string
+          webhook_secret?: string
+          webhook_registrations?: Json
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          workspace_id?: string
+          mode?: string
+          sim_slot?: number | null
+          local_server?: Json | null
+          cloud_server?: Json | null
+          webhook_token?: string
+          webhook_secret?: string
+          webhook_registrations?: Json
+          created_at?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      workspace_settings: {
+        Row: {
+          workspace_id: string
+          key: string
+          value: Json
+          updated_at: string
+        }
+        Insert: {
+          workspace_id: string
+          key: string
+          value?: Json
+          updated_at?: string
+        }
+        Update: {
+          workspace_id?: string
+          key?: string
+          value?: Json
+          updated_at?: string
         }
         Relationships: []
       }

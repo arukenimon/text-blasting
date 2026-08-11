@@ -12,6 +12,7 @@ export {
     GatewayNotConfiguredError,
     buildWebhookUrl,
     credentialsFromProfile,
+    getGatewayClientForWorkspace,
     getGatewayClientForUser,
     loadGatewayProfile,
 } from './for-user'

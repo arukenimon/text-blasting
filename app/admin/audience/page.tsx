@@ -58,14 +58,13 @@ import {
     TrendingDown,
     Trash2,
     Send,
-    Tag,
-    UserMinus,
     UserPlus,
     ChevronRight,
 } from "lucide-react";
-import { add_contact, add_segment, bulk_import_contacts, delete_contacts } from "./actions";
+import { add_contact, add_segment, bulk_import_contacts, delete_contacts, move_contacts } from "./actions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getContactsOption, getSegmentsOption } from "./QueryOptions";
+import { useAuth } from "@/app/components/auth-provider";
 
 const NEW_SEGMENT_VALUE = "__new_segment__";
 
@@ -623,19 +622,22 @@ function MoveToSegmentDialog({
     count,
     onMove,
     segments,
+    moving,
+    error,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     count: number;
-    onMove: (segmentName: string) => void;
+    onMove: (segmentId: string) => void;
     segments: SegmentItem[];
+    moving: boolean;
+    error?: string;
 }) {
     const [target, setTarget] = useState("");
 
     function handleMove() {
-        if (!target) return;
+        if (!target || moving) return;
         onMove(target);
-        setTarget("");
     }
 
 
@@ -657,7 +659,7 @@ function MoveToSegmentDialog({
                         </SelectTrigger>
                         <SelectContent>
                             {segments.map((s) => (
-                                <SelectItem key={s.id} value={s.name}>
+                                <SelectItem key={s.id} value={s.id}>
                                     <span className="flex items-center gap-2">
                                         <span className={`w-2 h-2 rounded-full`} style={{ backgroundColor: s.color_hex }} />
                                         {s.name}
@@ -666,13 +668,16 @@ function MoveToSegmentDialog({
                             ))}
                         </SelectContent>
                     </Select>
+                    {error && (
+                        <p className="mt-2 text-xs text-red-500">{error}</p>
+                    )}
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={moving}>
                         Cancel
                     </Button>
-                    <Button onClick={handleMove} disabled={!target}>
-                        Move
+                    <Button onClick={handleMove} disabled={!target || moving}>
+                        {moving ? "Moving..." : "Move"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -682,6 +687,8 @@ function MoveToSegmentDialog({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AudiencePage() {
+    const { activeWorkspace } = useAuth();
+    const workspaceId = activeWorkspace?.id;
 
     // const [contacts, setContacts] = useState([...contactItems]);
     const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
@@ -706,6 +713,30 @@ export default function AudiencePage() {
             queryClient.invalidateQueries({ queryKey: ["get-segments"] });
         },
     });
+    const moveMutation = useMutation({
+        mutationFn: async ({ ids, segmentId }: { ids: string[]; segmentId: string }) => {
+            const result = await move_contacts(ids, segmentId);
+            if (!result.success) {
+                throw new Error(result.error ?? "Failed to move contacts");
+            }
+            return result;
+        },
+        onSuccess: async (_result, variables) => {
+            setSelected((prev) => {
+                const next = new Set(prev);
+                variables.ids.forEach((id) => next.delete(id));
+                return next;
+            });
+            setMoveDialogIds(null);
+            await queryClient.invalidateQueries({ queryKey: ["get-contacts"] });
+            await queryClient.invalidateQueries({ queryKey: ["get-segments"] });
+        },
+    });
+
+    function openMoveDialog(ids: string[]) {
+        moveMutation.reset();
+        setMoveDialogIds(ids);
+    }
 
     function toggleOne(id: string) {
         setSelected((prev) => {
@@ -718,14 +749,14 @@ export default function AudiencePage() {
 
 
     const { data: segments } = useQuery(
-        getSegmentsOption()
+        getSegmentsOption(workspaceId)
     )
 
     const {
         data: contacts = [],
         isLoading: contactsLoading,
         error: contactsError,
-    } = useQuery(getContactsOption())
+    } = useQuery(getContactsOption(workspaceId))
 
     const contactsFlattened = useMemo(() => {
         let visible = [...contacts];
@@ -841,19 +872,13 @@ export default function AudiencePage() {
                                                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
                                                     <Send className="h-3 w-3" /> Send Campaign
                                                 </Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                                                    <Tag className="h-3 w-3" /> Add Tag
-                                                </Button>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
                                                     className="h-7 text-xs gap-1"
-                                                    onClick={() => setMoveDialogIds([...selected])}
+                                                    onClick={() => openMoveDialog([...selected])}
                                                 >
                                                     <Layers className="h-3 w-3" /> Move to Segment
-                                                </Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-amber-600 border-amber-200 hover:bg-amber-50">
-                                                    <UserMinus className="h-3 w-3" /> Opt Out
                                                 </Button>
                                                 <Button
                                                     size="sm"
@@ -1041,21 +1066,13 @@ export default function AudiencePage() {
                                                                         <Send className="h-4 w-4 mr-2" />
                                                                         Send Message
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuItem>
-                                                                        <Tag className="h-4 w-4 mr-2" />
-                                                                        Add Tag
-                                                                    </DropdownMenuItem>
                                                                     <DropdownMenuItem
-                                                                        onClick={() => setMoveDialogIds([contact.id])}
+                                                                        onClick={() => openMoveDialog([contact.id])}
                                                                     >
                                                                         <Layers className="h-4 w-4 mr-2" />
                                                                         Move to Segment
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem className="text-amber-600">
-                                                                        <UserMinus className="h-4 w-4 mr-2" />
-                                                                        Opt Out
-                                                                    </DropdownMenuItem>
                                                                     <DropdownMenuItem className="text-red-600">
                                                                         <Trash2 className="h-4 w-4 mr-2" />
                                                                         Delete Contact
@@ -1090,17 +1107,19 @@ export default function AudiencePage() {
             {/* Move to Segment dialog (shared for single + bulk) */}
             <MoveToSegmentDialog
                 open={moveDialogIds !== null}
-                onOpenChange={(o) => { if (!o) setMoveDialogIds(null); }}
+                onOpenChange={(o) => {
+                    if (!o) {
+                        moveMutation.reset();
+                        setMoveDialogIds(null);
+                    }
+                }}
                 count={moveDialogIds?.length ?? 0}
                 segments={(segments as SegmentItem[]) ?? []}
-                onMove={() => {
+                moving={moveMutation.isPending}
+                error={moveMutation.error instanceof Error ? moveMutation.error.message : undefined}
+                onMove={(segmentId) => {
                     if (!moveDialogIds) return;
-                    setSelected((prev) => {
-                        const next = new Set(prev);
-                        moveDialogIds.forEach((id) => next.delete(id));
-                        return next;
-                    });
-                    setMoveDialogIds(null);
+                    moveMutation.mutate({ ids: moveDialogIds, segmentId });
                 }}
             />
         </DashboardLayout>

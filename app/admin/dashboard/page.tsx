@@ -10,11 +10,14 @@ import { Topbar } from "../../components/dashboard/topbar";
 import { getCampaignOption } from "../campaigns/QueryOptions";
 import { getSegmentsOption } from "../audience/QueryOptions";
 import { useMessagesRealtime } from "@/lib/realtime/messages";
+import { useAuth } from "@/app/components/auth-provider";
 
 export default function DashboardPage() {
-    useMessagesRealtime();
-    const { data: campaigns } = useQuery(getCampaignOption());
-    const { data: segments } = useQuery(getSegmentsOption());
+    const { activeWorkspace } = useAuth();
+    const workspaceId = activeWorkspace?.id;
+    useMessagesRealtime({ workspaceId });
+    const { data: campaigns } = useQuery(getCampaignOption(workspaceId));
+    const { data: segments } = useQuery(getSegmentsOption(workspaceId));
 
     return (
         <DashboardLayout>

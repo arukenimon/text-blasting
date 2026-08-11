@@ -2,10 +2,20 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { CreateTemplateSchema } from './schema'
+import { requireWorkspaceRole } from '@/lib/workspaces/server'
 
 
 export async function add_template(_prevState: unknown, formData: FormData) {
     const supabase = createAdminClient()
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return {
+            success: false as const,
+            errors: { form: [err instanceof Error ? err.message : 'Not authorized.'] },
+        }
+    }
 
     // Validate form fields
     const validatedFields = CreateTemplateSchema.safeParse({
@@ -22,9 +32,8 @@ export async function add_template(_prevState: unknown, formData: FormData) {
         }
     }
 
-    console.log('Validated fields:', validatedFields.data)
-
-    const { data, error } = await supabase.from('templates').insert({
+    const { error } = await supabase.from('templates').insert({
+        workspace_id: context.workspace.id,
         template_name: validatedFields.data.template_name,
         body: validatedFields.data.template_body,
         category: validatedFields.data.category,
@@ -38,13 +47,20 @@ export async function add_template(_prevState: unknown, formData: FormData) {
         }
     }
 
-    // console.log('Validated fields:', validatedFields.data)
-
     return { success: true as const, errors: {} as Record<string, string[]> }
 }
 
 export async function update_template(id: string, formData: FormData) {
     const supabase = createAdminClient()
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return {
+            success: false as const,
+            errors: { form: [err instanceof Error ? err.message : 'Not authorized.'] },
+        }
+    }
 
     const validatedFields = CreateTemplateSchema.safeParse({
         template_name: formData.get('template_name'),
@@ -63,7 +79,9 @@ export async function update_template(id: string, formData: FormData) {
         template_name: validatedFields.data.template_name,
         body: validatedFields.data.template_body,
         category: validatedFields.data.category,
-    }).eq('id', id)
+    })
+        .eq('id', id)
+        .eq('workspace_id', context.workspace.id)
 
     if (error) {
         console.error('Error updating template:', error)
@@ -78,8 +96,18 @@ export async function update_template(id: string, formData: FormData) {
 
 export async function delete_template(id: string) {
     const supabase = createAdminClient()
+    let context
+    try {
+        context = await requireWorkspaceRole('admin')
+    } catch (err) {
+        return { success: false as const, error: err instanceof Error ? err.message : 'Not authorized' }
+    }
 
-    const { error } = await supabase.from('templates').delete().eq('id', id)
+    const { error } = await supabase
+        .from('templates')
+        .delete()
+        .eq('id', id)
+        .eq('workspace_id', context.workspace.id)
 
     if (error) {
         console.error('Error deleting template:', error)
