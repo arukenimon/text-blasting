@@ -1,11 +1,9 @@
 "use client";
 
-import { Bell, Download, Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const pageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
     "/admin": {
@@ -33,6 +31,11 @@ const pageCopy: Record<string, { eyebrow: string; title: string; description: st
         title: "Campaigns",
         description: "Schedule, send, and measure outbound SMS campaigns.",
     },
+    "/admin/reports": {
+        eyebrow: "Analytics",
+        title: "Reports",
+        description: "Review delivery performance, reply engagement, and audience health.",
+    },
     "/admin/settings": {
         eyebrow: "Configuration",
         title: "Settings",
@@ -57,33 +60,12 @@ export function Topbar() {
                     <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{copy.description}</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                    <WorkspaceSwitcher compact />
-
-                    <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            type="search"
-                            placeholder="Search workspace..."
-                            className="h-9 w-full min-w-48 pl-9 sm:w-56"
-                        />
-                    </div>
-
-                    <Button variant="outline" size="sm">
-                        <Download />
-                        Export
-                    </Button>
-
+                <div className="flex items-center">
                     <Button size="sm" asChild>
                         <Link href="/admin/campaigns">
                             <Plus />
                             New Campaign
                         </Link>
-                    </Button>
-
-                    <Button variant="outline" size="icon-sm" aria-label="Notifications" className="relative">
-                        <Bell />
-                        <span className="absolute right-2 top-2 size-1.5 rounded-full bg-amber-400 ring-1 ring-background" />
                     </Button>
                 </div>
             </div>

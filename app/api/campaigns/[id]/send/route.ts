@@ -140,6 +140,14 @@ export async function POST(
         return NextResponse.json({ ok: true, sent: 0, message: 'No contacts in segment' })
     }
 
+    const claimed = await claimCampaignForSending(admin, campaignIdNum, userId)
+    if (!claimed) {
+        return NextResponse.json(
+            { error: 'Campaign is already running or completed' },
+            { status: 409 }
+        )
+    }
+
     // ── Load gateway client for this user ──────────────────────────────────
     let gateway, profile
     try {
@@ -154,11 +162,17 @@ export async function POST(
         )
     }
 
-    // Mark campaign as Running
-    await admin
-        .from('campaigns')
-        .update({ status: 'Running', started_at: new Date().toISOString(), user_id: userId })
-        .eq('id', campaignIdNum)
+    const gatewayHealth = await gateway.checkCloudDeviceHealth()
+    if (!gatewayHealth.ok) {
+        await admin.from('campaigns').update({ status: 'Failed' }).eq('id', campaignIdNum)
+        return NextResponse.json(
+            {
+                error: gatewayHealth.error ?? 'No recently active SMS Gateway sender device found.',
+                gateway: gatewayHealth,
+            },
+            { status: 400 }
+        )
+    }
 
     // ── For each chunk: pre-insert pending message rows, then send batch ───
     const simNumber = profile.sim_slot ?? 1
@@ -258,4 +272,30 @@ export async function POST(
         failed: failedCount,
         errors: errors.slice(0, 10),
     })
+}
+
+async function claimCampaignForSending(
+    admin: ReturnType<typeof createAdminClient>,
+    campaignId: number,
+    userId: string
+) {
+    const { data, error } = await admin
+        .from('campaigns')
+        .update({
+            status: 'Running',
+            started_at: new Date().toISOString(),
+            completed_at: null,
+            user_id: userId,
+        })
+        .eq('id', campaignId)
+        .neq('status', 'Running')
+        .neq('status', 'Completed')
+        .select('id')
+        .maybeSingle()
+
+    if (error) {
+        throw new Error(error.message)
+    }
+
+    return Boolean(data)
 }

@@ -36,12 +36,18 @@ export function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
     return (
         <div className={compact ? "min-w-0" : "space-y-1.5"}>
             {!compact && (
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/45">
                     Active workspace
                 </p>
             )}
             <Select value={activeWorkspace.id} onValueChange={handleSwitch} disabled={pending}>
-                <SelectTrigger className={compact ? "h-9 w-48" : "h-9 w-full bg-background/80"}>
+                <SelectTrigger
+                    className={
+                        compact
+                            ? "h-9 w-48"
+                            : "h-9 w-full border-sidebar-border bg-sidebar-accent/70 text-sidebar-foreground shadow-none hover:bg-sidebar-accent focus-visible:border-sidebar-ring focus-visible:ring-sidebar-ring/30 [&_svg]:text-sidebar-foreground/55"
+                    }
+                >
                     {pending ? (
                         <span className="flex items-center gap-2">
                             <Loader2 className="size-3.5 animate-spin" />

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, Loader2, UsersRound, XCircle } from "lucide-react";
@@ -393,7 +393,7 @@ function SmsTab() {
 }
 
 const tabs = [
-    { value: "security", label: "Security", icon: KeyRound },
+    { value: "security", label: "Account", icon: KeyRound },
     { value: "sms", label: "Workspace", icon: UsersRound },
 ] as const;
 

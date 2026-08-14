@@ -5,10 +5,13 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /**
- * Vercel Cron-triggered dispatcher.
+ * Cron-triggered dispatcher.
  * Picks up campaigns where status='Scheduled' and scheduled_date <= now(),
  * and POSTs to the campaign send endpoint for each (server-to-server, authenticated
  * via CRON_SECRET + x-cron-user + x-cron-workspace).
+ *
+ * The send endpoint atomically moves campaigns into Running before sending, so
+ * overlapping cron ticks can race here without double-sending a campaign.
  */
 export async function GET(request: NextRequest) {
     return handleDispatch(request)
@@ -32,6 +35,7 @@ async function handleDispatch(request: NextRequest) {
         .select('id, workspace_id, user_id, scheduled_date, status')
         .eq('status', 'Scheduled')
         .lte('scheduled_date', new Date().toISOString())
+        .order('scheduled_date', { ascending: true })
         .limit(20)
 
     if (error) {

@@ -43,6 +43,7 @@ export function useMessagesRealtime({ workspaceId, campaignId, additionalKeys }:
                 () => {
                     queryClient.invalidateQueries({ queryKey: ['messages', workspaceId] })
                     queryClient.invalidateQueries({ queryKey: ['campaign-stats', workspaceId] })
+                    queryClient.invalidateQueries({ queryKey: ['dashboard-stats', workspaceId] })
                     if (campaignId) {
                         queryClient.invalidateQueries({ queryKey: ['messages', campaignId] })
                         queryClient.invalidateQueries({ queryKey: ['campaign-stats', campaignId] })

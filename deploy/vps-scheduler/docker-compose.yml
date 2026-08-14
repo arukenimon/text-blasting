@@ -1,0 +1,21 @@
+services:
+  scheduler:
+    image: curlimages/curl:8.11.1
+    restart: unless-stopped
+    environment:
+      APP_URL: ${APP_URL:?Set APP_URL}
+      CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET}
+      INTERVAL_SECONDS: ${INTERVAL_SECONDS:-60}
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          echo "$$(date -Iseconds) dispatching scheduled campaigns"
+          curl -fsS --retry 2 --retry-delay 5 --max-time 55 \
+            -X POST \
+            -H "Authorization: Bearer $$CRON_SECRET" \
+            "$$APP_URL/api/cron/dispatch"
+          echo
+          sleep "$$INTERVAL_SECONDS"
+        done

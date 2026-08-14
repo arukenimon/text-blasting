@@ -15,6 +15,7 @@ import type { CampaignItem_, CampaignStatus } from "./dashboard-data";
 
 type CampaignsTableProps = {
     items: CampaignItem_[];
+    totalCount?: number;
 };
 
 const statusConfig: Record<
@@ -28,7 +29,11 @@ const statusConfig: Record<
     Paused: { variant: "secondary", dot: "bg-orange-400" },
 };
 
-export function CampaignsTable({ items }: CampaignsTableProps) {
+export function CampaignsTable({ items, totalCount = items.length }: CampaignsTableProps) {
+    const summary = totalCount > items.length
+        ? `Showing ${items.length} of ${totalCount.toLocaleString()} recent campaigns`
+        : `${items.length} campaigns queued or tracked`;
+
     return (
         <Card className="gap-0 overflow-hidden py-0">
             <CardHeader className="flex-row items-center justify-between border-b bg-card px-5 py-4">
@@ -38,7 +43,7 @@ export function CampaignsTable({ items }: CampaignsTableProps) {
                     </div>
                     <div>
                         <CardTitle className="text-base">Recent Campaigns</CardTitle>
-                        <p className="text-xs text-muted-foreground">{items.length} campaigns queued or tracked</p>
+                        <p className="text-xs text-muted-foreground">{summary}</p>
                     </div>
                 </div>
                 <Button variant="outline" size="sm" asChild>

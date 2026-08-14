@@ -19,7 +19,10 @@ export {
 export { applyWebhookEvent } from './webhook-events'
 export type {
     GatewayCredentials,
+    GatewayDevice,
+    GatewayHealthResult,
     GatewayMode,
+    SendMessageOptions,
     SendMessageRequest,
     SendMessageResponse,
     WebhookEvent,

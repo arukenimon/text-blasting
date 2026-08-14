@@ -50,6 +50,16 @@ export async function POST(request: NextRequest) {
 
     const simNumber = body.simNumber ?? profile.sim_slot ?? 1
     const admin = createAdminClient()
+    const gatewayHealth = await gateway.checkCloudDeviceHealth()
+    if (!gatewayHealth.ok) {
+        return NextResponse.json(
+            {
+                error: gatewayHealth.error ?? 'No recently active SMS Gateway sender device found.',
+                gateway: gatewayHealth,
+            },
+            { status: 400 }
+        )
+    }
 
     // Insert pending rows up-front so the UI sees them immediately.
     const pendingRows = phoneNumbers.map((phone) => ({

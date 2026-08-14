@@ -75,7 +75,7 @@ export const navItems: NavItem[] = [
     { name: "Campaigns", href: "/admin/campaigns" },
     { name: "Audience", href: "/admin/audience" },
     { name: "Templates", href: "/admin/templates" },
-    { name: "Reports", href: "#" },
+    { name: "Reports", href: "/admin/reports" },
     { name: "Settings", href: "/admin/settings" },
 ];
 

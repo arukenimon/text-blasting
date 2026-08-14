@@ -3,15 +3,19 @@
 import { useActionState, useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
     CalendarDays,
+    CheckCircle2,
     ChevronLeft,
     ChevronRight,
     Clock,
+    Loader2,
     MessageSquareText,
     MoreHorizontal,
+    RefreshCw,
     Search,
     Send,
     Trash2,
     Users,
+    XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,6 +91,19 @@ const statusConfig: Record<
 const SMS_SEGMENT_LENGTH = 160;
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
+type GatewayHealth = {
+    ok: boolean;
+    mode?: "cloud";
+    error?: string;
+    status?: number;
+    deviceCount?: number;
+    activeDeviceCount?: number;
+    lastSeen?: string;
+    stale?: boolean;
+    activeWithinMinutes?: number;
+    activeWithinHours?: number;
+};
+
 function getContactCount(segment?: SegmentItem) {
     const count = segment?.contacts?.[0]?.count;
     return typeof count === "number" ? count : 0;
@@ -94,6 +111,19 @@ function getContactCount(segment?: SegmentItem) {
 
 function formatCount(value: number) {
     return value > 0 ? value.toLocaleString() : "—";
+}
+
+function formatLastSeen(value?: string) {
+    if (!value) return "No check-in yet";
+    const timestamp = new Date(value).getTime();
+    if (!Number.isFinite(timestamp)) return "Last seen unknown";
+    const diffMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
+    if (diffMinutes < 1) return "Last seen just now";
+    if (diffMinutes < 60) return `Last seen ${diffMinutes} min ago`;
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) return `Last seen ${diffHours} hr ago`;
+    const diffDays = Math.round(diffHours / 24);
+    return `Last seen ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
 function DeliveryBar({ total, delivered }: { total: number; delivered: number }) {
@@ -253,6 +283,26 @@ function NewCampaignDialog({
     const [scheduleTime, setScheduleTime] = useState("");
     const [state, action, pending] = useActionState(add_campaign, undefined);
     const queryClient = useQueryClient();
+    const { activeWorkspace } = useAuth();
+    const gatewayHealth = useQuery({
+        queryKey: ["sms-gateway-health", activeWorkspace?.id],
+        enabled: open && sendImmediately && Boolean(activeWorkspace?.id),
+        retry: false,
+        staleTime: 30_000,
+        refetchOnWindowFocus: false,
+        queryFn: async (): Promise<GatewayHealth> => {
+            const res = await fetch("/api/settings/sms-gateway/test", { method: "POST" });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                return {
+                    ok: false,
+                    error: typeof body.error === "string" ? body.error : `Gateway check failed (${res.status})`,
+                    status: res.status,
+                };
+            }
+            return body as GatewayHealth;
+        },
+    });
 
     const selectedSegment = segments.find((s) => s.id === selectedSegmentId);
     const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
@@ -260,11 +310,14 @@ function NewCampaignDialog({
     const contactCount = getContactCount(selectedSegment);
     const smsParts = Math.max(1, Math.ceil(messageBody.length / SMS_SEGMENT_LENGTH));
     const hasMessage = messageBody.trim().length > 0;
+    const senderReady = !sendImmediately || gatewayHealth.data?.ok === true;
+    const senderChecking = sendImmediately && (gatewayHealth.isLoading || gatewayHealth.isFetching);
     const canSubmit = Boolean(
         selectedSegmentId &&
         hasMessage &&
         (messageMode === "custom" || selectedTemplateId) &&
-        (sendImmediately || scheduleTime)
+        (sendImmediately || scheduleTime) &&
+        senderReady
     );
     const campaignName =
         messageMode === "template" && selectedTemplate && selectedSegment
@@ -445,6 +498,53 @@ function NewCampaignDialog({
                                     </span>
                                 </button>
                             </div>
+                            {sendImmediately && (
+                                <div
+                                    className={`flex items-start justify-between gap-3 rounded-md border p-3 ${
+                                        gatewayHealth.data?.ok
+                                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                                            : gatewayHealth.data || gatewayHealth.isError
+                                                ? "border-destructive/30 bg-destructive/5 text-destructive"
+                                                : "bg-muted/30"
+                                    }`}
+                                >
+                                    <div className="flex min-w-0 gap-3">
+                                        {senderChecking ? (
+                                            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-muted-foreground" />
+                                        ) : gatewayHealth.data?.ok ? (
+                                            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                                        ) : (
+                                            <XCircle className="mt-0.5 size-4 shrink-0" />
+                                        )}
+                                        <div className="min-w-0 space-y-1">
+                                            <p className="text-sm font-medium">
+                                                {senderChecking
+                                                    ? "Checking sender phone"
+                                                    : gatewayHealth.data?.ok
+                                                        ? "Sender phone online"
+                                                        : "Sender phone not ready"}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {senderChecking
+                                                    ? "Checking SMS Gateway cloud device activity."
+                                                    : gatewayHealth.data?.ok
+                                                        ? `${gatewayHealth.data.activeDeviceCount ?? 1} active of ${gatewayHealth.data.deviceCount ?? 1} device${(gatewayHealth.data.deviceCount ?? 1) === 1 ? "" : "s"} - ${formatLastSeen(gatewayHealth.data.lastSeen)}`
+                                                        : gatewayHealth.data?.error ?? "Open the SMS Gateway app on the sender phone, turn on Cloud server, then recheck."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        onClick={() => gatewayHealth.refetch()}
+                                        disabled={senderChecking}
+                                        aria-label="Recheck sender phone"
+                                    >
+                                        <RefreshCw className={`size-4 ${senderChecking ? "animate-spin" : ""}`} />
+                                    </Button>
+                                </div>
+                            )}
                             {!sendImmediately && (
                                 <div className="relative">
                                     <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

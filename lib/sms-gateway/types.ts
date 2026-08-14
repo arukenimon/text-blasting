@@ -8,12 +8,41 @@ export type GatewayCredentials = {
     password: string
 }
 
+export type GatewayDevice = {
+    id: string
+    name?: string
+    lastSeen?: string
+    lastSeenAt?: string
+    last_seen?: string
+    last_seen_at?: string
+    updatedAt?: string
+    [key: string]: unknown
+}
+
+export type GatewayHealthResult = {
+    ok: boolean
+    mode: GatewayMode
+    checked: 'cloud-devices'
+    error?: string
+    status?: number
+    deviceCount?: number
+    activeDeviceCount?: number
+    lastSeen?: string
+    stale?: boolean
+    activeWithinMinutes?: number
+    activeWithinHours?: number
+}
+
 export type SendMessageRequest = {
     textMessage: { text: string }
     phoneNumbers: string[]
     simNumber?: number
     /** Optional client-supplied id; rarely needed. */
     id?: string
+}
+
+export type SendMessageOptions = {
+    deviceActiveWithinHours?: number
 }
 
 /** What the gateway returns from POST /message */
