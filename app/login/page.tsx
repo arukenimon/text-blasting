@@ -14,8 +14,15 @@ function LoginForm() {
     const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(searchParams.get("error"));
     const [loading, setLoading] = useState(false);
+    const message = searchParams.get("message");
+
+    function getRedirectTo() {
+        const redirectTo = searchParams.get("redirectTo");
+        if (redirectTo?.startsWith("/") && !redirectTo.startsWith("//")) return redirectTo;
+        return "/admin/dashboard";
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -30,8 +37,7 @@ function LoginForm() {
             return;
         }
 
-        const redirectTo = searchParams.get("redirectTo") ?? "/admin/dashboard";
-        router.push(redirectTo);
+        router.push(getRedirectTo());
         router.refresh();
     }
 
@@ -72,6 +78,16 @@ function LoginForm() {
                     {error}
                 </div>
             )}
+            {message === "password-updated" && (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                    Password updated. Sign in with your new password.
+                </div>
+            )}
+            <div className="flex justify-end">
+                <Link href="/forgot-password" className="text-sm font-semibold text-primary hover:text-primary/80">
+                    Forgot password?
+                </Link>
+            </div>
             <Button type="submit" className="h-11 w-full" disabled={loading}>
                 {loading ? "Signing in..." : "Sign in"}
                 {!loading && <ArrowRight className="size-4" />}

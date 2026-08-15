@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarDays, MessageSquareText, Send, Users } from "lucide-react";
+import Link from "next/link";
+import { useActionState, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, Loader2, MessageSquareText, Send, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
     Select,
     SelectContent,
@@ -14,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ActivityItem, SegmentItem } from "./dashboard-data";
+import { quick_send_campaign, type QuickSendState } from "@/app/admin/dashboard/actions";
 
 const MAX_CHARS = 160;
 
@@ -25,6 +29,11 @@ const activityFallback: ActivityItem[] = [
 
 const activityDots = ["bg-primary", "bg-emerald-500", "bg-amber-400"];
 
+const initialQuickSendState: QuickSendState = {
+    success: false,
+    errors: {},
+};
+
 type RightPanelProps = {
     segments: SegmentItem[];
     activities: ActivityItem[];
@@ -33,10 +42,29 @@ type RightPanelProps = {
 export function RightPanel({ segments, activities }: RightPanelProps) {
     const defaultMsg =
         "Hey {{full_name}}, your early access starts now. Reply YES to claim your offer.";
+    const queryClient = useQueryClient();
     const [message, setMessage] = useState(defaultMsg);
+    const [campaignName, setCampaignName] = useState("");
+    const [selectedSegmentId, setSelectedSegmentId] = useState("");
+    const [state, formAction, pending] = useActionState(quick_send_campaign, initialQuickSendState);
     const remaining = MAX_CHARS - message.length;
     const isOverLimit = remaining < 0;
+    const hasSegments = segments.length > 0;
+    const activeSegmentId = segments.some((segment) => segment.id === selectedSegmentId)
+        ? selectedSegmentId
+        : segments[0]?.id ?? "";
+    const canSubmit = hasSegments && message.trim().length > 0 && !isOverLimit && !pending;
     const visibleActivities = activities.length ? activities : activityFallback;
+
+    useEffect(() => {
+        if (!state.success) return;
+
+        queryClient.invalidateQueries({ queryKey: ["recent-campaigns"] });
+        queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+        queryClient.invalidateQueries({ queryKey: ["campaign-status-counts"] });
+        queryClient.invalidateQueries({ queryKey: ["campaign-stats"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    }, [queryClient, state.success, state.campaignId]);
 
     return (
         <div className="space-y-4">
@@ -53,58 +81,107 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4 p-5">
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                            Audience Segment
-                        </label>
-                        <Select defaultValue={segments[0]?.name}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select segment" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {segments.map((segment) => (
-                                    <SelectItem key={segment.id} value={segment.name}>
-                                        {segment.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
+                    <form action={formAction} className="space-y-4">
+                        <input type="hidden" name="message_body" value={message} />
+                        <div className="space-y-1.5">
                             <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                                Message
+                                Draft Name
                             </label>
-                            <span
-                                className={`text-xs tabular-nums ${
-                                    isOverLimit
-                                        ? "font-semibold text-destructive"
-                                        : remaining < 20
-                                            ? "text-amber-600"
-                                            : "text-muted-foreground"
-                                }`}
-                            >
-                                {remaining} chars
-                            </span>
+                            <Input
+                                name="campaign_name"
+                                value={campaignName}
+                                onChange={(event) => setCampaignName(event.target.value)}
+                                placeholder="Quick send promo"
+                                disabled={pending}
+                            />
                         </div>
-                        <Textarea
-                            rows={5}
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            className={isOverLimit ? "border-destructive focus-visible:ring-destructive/30" : ""}
-                        />
-                    </div>
 
-                    <div className="flex gap-2">
-                        <Button type="button" className="flex-1" disabled={isOverLimit}>
-                            <MessageSquareText />
-                            Use as Template
-                        </Button>
-                        <Button type="button" variant="outline" size="icon" aria-label="Schedule message">
-                            <CalendarDays />
-                        </Button>
-                    </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                Audience Segment
+                            </label>
+                            <Select
+                                name="segment_id"
+                                value={activeSegmentId}
+                                onValueChange={setSelectedSegmentId}
+                                disabled={!hasSegments || pending}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select segment" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {segments.map((segment) => (
+                                        <SelectItem key={segment.id} value={segment.id}>
+                                            {segment.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {state.errors.segment_id && (
+                                <p className="text-xs text-destructive">{state.errors.segment_id[0]}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                    Message
+                                </label>
+                                <span
+                                    className={`text-xs tabular-nums ${
+                                        isOverLimit
+                                            ? "font-semibold text-destructive"
+                                            : remaining < 20
+                                                ? "text-amber-600"
+                                                : "text-muted-foreground"
+                                    }`}
+                                >
+                                    {remaining} chars
+                                </span>
+                            </div>
+                            <Textarea
+                                rows={5}
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                disabled={pending}
+                                className={isOverLimit ? "border-destructive focus-visible:ring-destructive/30" : ""}
+                            />
+                            {state.errors.message_body && (
+                                <p className="text-xs text-destructive">{state.errors.message_body[0]}</p>
+                            )}
+                        </div>
+
+                        {state.errors.form && (
+                            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                                {state.errors.form[0]}
+                            </p>
+                        )}
+                        {state.message && (
+                            <p className={`rounded-md border px-3 py-2 text-xs ${
+                                state.success
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-amber-200 bg-amber-50 text-amber-700"
+                            }`}>
+                                {state.message}
+                            </p>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                            <Button type="submit" name="intent" value="draft" variant="outline" disabled={!canSubmit}>
+                                {pending ? <Loader2 className="animate-spin" /> : <MessageSquareText />}
+                                Save Draft
+                            </Button>
+                            <Button type="submit" name="intent" value="send" disabled={!canSubmit}>
+                                {pending ? <Loader2 className="animate-spin" /> : <Send />}
+                                Send Now
+                            </Button>
+                            <Button variant="outline" size="icon" aria-label="Schedule message" asChild>
+                                <Link href="/admin/campaigns">
+                                    <CalendarDays />
+                                </Link>
+                            </Button>
+                        </div>
+                    </form>
                 </CardContent>
             </Card>
 
@@ -120,8 +197,9 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
                         </div>
                     ) : (
                         segments.slice(0, 4).map((segment) => (
-                            <div
+                            <Link
                                 key={segment.id}
+                                href="/admin/audience"
                                 className="flex items-start gap-3 rounded-md border bg-background p-3 transition-colors hover:bg-accent/50"
                             >
                                 <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
@@ -139,7 +217,10 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
                                         {segment.description || "No description"}
                                     </p>
                                 </div>
-                            </div>
+                                <Badge variant="outline" className="shrink-0">
+                                    {getContactCount(segment)}
+                                </Badge>
+                            </Link>
                         ))
                     )}
                 </CardContent>
@@ -170,4 +251,9 @@ export function RightPanel({ segments, activities }: RightPanelProps) {
             </Card>
         </div>
     );
+}
+
+function getContactCount(segment: SegmentItem) {
+    const count = segment.contacts?.[0]?.count;
+    return typeof count === "number" ? count.toLocaleString() : "0";
 }

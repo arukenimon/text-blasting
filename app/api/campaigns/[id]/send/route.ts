@@ -8,7 +8,13 @@ export const maxDuration = 60 // Vercel Hobby max
 
 // contacts.phone_no is stored as a bigint in the existing schema (sigh) —
 // coerce to string everywhere we use it.
-type RawContact = { id: string; full_name: string | null; phone_no: number | string | null; status?: string | null }
+type RawContact = {
+    id: string
+    workspace_id?: string | null
+    full_name: string | null
+    phone_no: number | string | null
+    status?: string | null
+}
 type Contact = { id: string; full_name: string; phone_no: string }
 
 function normalizeContact(c: RawContact): Contact {
@@ -82,6 +88,7 @@ export async function POST(
         user_id: string | null
         status: string
         message_body: string | null
+        contact_ids: string[] | null
         templates: { id: string; template_name: string; body: string } | { id: string; template_name: string; body: string }[] | null
         segments:
             | { id: string; name: string; workspace_id: string; contacts: (RawContact & { workspace_id?: string | null })[] }
@@ -92,6 +99,7 @@ export async function POST(
         .from('campaigns')
         .select(
             'id, workspace_id, campaign_name, segment_id, template_id, status, user_id, message_body, ' +
+            'contact_ids, ' +
             'templates(id, template_name, body), ' +
             'segments(id, name, workspace_id, contacts(id, workspace_id, full_name, phone_no, status))'
         )
@@ -129,15 +137,34 @@ export async function POST(
         return NextResponse.json({ error: 'Message missing or empty' }, { status: 400 })
     }
 
-    const allContacts: Contact[] = (segment?.contacts ?? [])
-        .filter((c) => !c.workspace_id || c.workspace_id === campaign.workspace_id)
+    const selectedContactIds = Array.isArray(campaign.contact_ids) ? campaign.contact_ids : []
+    let contactRows: RawContact[] = []
+
+    if (selectedContactIds.length > 0) {
+        const { data: selectedContacts, error: selectedContactsErr } = await admin
+            .from('contacts')
+            .select('id, workspace_id, full_name, phone_no, status')
+            .eq('workspace_id', campaign.workspace_id)
+            .in('id', selectedContactIds)
+
+        if (selectedContactsErr) {
+            return NextResponse.json({ error: selectedContactsErr.message }, { status: 400 })
+        }
+        contactRows = selectedContacts ?? []
+    } else {
+        contactRows = (segment?.contacts ?? []).filter(
+            (c) => !c.workspace_id || c.workspace_id === campaign.workspace_id
+        )
+    }
+
+    const allContacts: Contact[] = contactRows
         .filter((c) => c.status !== 'Opted Out')
         .map(normalizeContact)
         .filter((c) => c.phone_no.length > 0)
 
     if (allContacts.length === 0) {
         await admin.from('campaigns').update({ status: 'Completed', completed_at: new Date().toISOString() }).eq('id', campaignIdNum)
-        return NextResponse.json({ ok: true, sent: 0, message: 'No contacts in segment' })
+        return NextResponse.json({ ok: true, sent: 0, message: 'No contacts in audience' })
     }
 
     const claimed = await claimCampaignForSending(admin, campaignIdNum, userId)

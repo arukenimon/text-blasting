@@ -102,6 +102,7 @@ export const getWorkspaceTeamOption = (workspaceId?: string | null) =>
                         .from('workspace_invitations')
                         .select('id, email, role, status, expires_at, created_at')
                         .eq('workspace_id', workspaceId)
+                        .eq('status', 'pending')
                         .order('created_at', { ascending: false }),
                 ])
 

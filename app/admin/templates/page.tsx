@@ -166,7 +166,7 @@ function TemplateDialog({
                             name="template_body"
                             value={body}
                             onChange={(event) => setBody(event.target.value)}
-                            placeholder="Hi {{full_name}}, your update is ready. Reply STOP to opt out."
+                            placeholder="Hi {{full_name}}, your update is ready."
                             className="min-h-[150px] resize-none"
                         />
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">

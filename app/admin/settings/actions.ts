@@ -172,12 +172,20 @@ async function registerWebhooksForWorkspace(workspaceId: string): Promise<{ warn
         hdrs.get('origin') ??
         (hdrs.get('host') ? `https://${hdrs.get('host')}` : '')
 
-    if (!origin || origin.startsWith('http://localhost')) {
+    let isLoopbackOrigin = false
+    try {
+        const hostname = new URL(origin).hostname
+        isLoopbackOrigin = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(hostname)
+    } catch {
+        isLoopbackOrigin = false
+    }
+
+    if (!origin || isLoopbackOrigin) {
         warnings.push(
-            'Webhook URL appears to be localhost — the SMS gateway cannot reach this server. Set WEBHOOK_BASE_URL to a public URL (Vercel, ngrok, etc.).'
+            'Webhook URL appears to be local - the SMS gateway cannot reach this server. Set WEBHOOK_BASE_URL to a public URL (Vercel, ngrok, etc.).'
         )
     }
-    const webhookUrl = buildWebhookUrl(origin || 'http://localhost', profile.webhook_token)
+    const webhookUrl = buildWebhookUrl(origin || 'http://127.0.0.1:3000', profile.webhook_token)
 
     await client.clearAllWebhooks().catch((err) => {
         warnings.push(`Failed to clear old webhooks: ${err instanceof Error ? err.message : 'unknown'}`)

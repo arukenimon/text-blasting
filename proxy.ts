@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getRequestUrl } from "@/lib/auth/request-origin";
 
 const PUBLIC_FILE = /\.(.*)$/;
 
@@ -16,7 +17,7 @@ function redirectWithCookies(
     pathname: string,
     redirectTo?: string
 ) {
-    const url = new URL(pathname, request.url);
+    const url = getRequestUrl(request, pathname);
     if (redirectTo) {
         url.searchParams.set("redirectTo", redirectTo);
     }
@@ -72,7 +73,7 @@ export async function proxy(request: NextRequest) {
     }
 
     if (user && (pathname === "/login" || pathname === "/register")) {
-        return copyResponseCookies(response, NextResponse.redirect(new URL("/admin", request.url)));
+        return copyResponseCookies(response, NextResponse.redirect(getRequestUrl(request, "/admin")));
     }
 
     return response;

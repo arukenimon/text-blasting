@@ -11,10 +11,12 @@ import {
     ShieldCheck,
     UsersRound,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { createAuthEmailClient } from "@/lib/supabase/email-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+
+const authEmailClient = createAuthEmailClient();
 
 function RegisterForm() {
     const router = useRouter();
@@ -27,6 +29,12 @@ function RegisterForm() {
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
+    function getRedirectTo() {
+        const redirectTo = searchParams.get("redirectTo");
+        if (redirectTo?.startsWith("/") && !redirectTo.startsWith("//")) return redirectTo;
+        return "/admin/dashboard";
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -50,13 +58,13 @@ function RegisterForm() {
 
         setLoading(true);
 
-        const redirectTo = searchParams.get("redirectTo") ?? "/admin/dashboard";
+        const redirectTo = getRedirectTo();
         const emailRedirectTo =
             typeof window === "undefined"
                 ? undefined
-                : `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+                : `${window.location.origin}${redirectTo}`;
 
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await authEmailClient.auth.signUp({
             email,
             password,
             options: {
@@ -80,7 +88,7 @@ function RegisterForm() {
             return;
         }
 
-        setMessage("Check your email to confirm your account, then come back to sign in.");
+        setMessage("Check your email to confirm your account. The confirmation link will bring you back into the app.");
         setLoading(false);
     }
 

@@ -3,11 +3,7 @@
 import { useState, useMemo, useActionState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/app/components/dashboard/dashboard-layout";
 import { Topbar } from "@/app/components/dashboard/topbar";
-import {
-    type SegmentItem,
-    type ContactStatus,
-    type ContactItem,
-} from "@/app/components/dashboard/dashboard-data";
+import { type SegmentItem } from "@/app/components/dashboard/dashboard-data";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,24 +43,28 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Users,
-    UserCheck,
-    UserX,
     Layers,
     Search,
     Upload,
     Plus,
     MoreHorizontal,
-    TrendingUp,
-    TrendingDown,
     Trash2,
     Send,
     UserPlus,
     ChevronRight,
+    CalendarDays,
+    Clock,
+    MessageSquareText,
 } from "lucide-react";
 import { add_contact, add_segment, bulk_import_contacts, delete_contacts, move_contacts } from "./actions";
+import { add_campaign } from "../campaigns/actions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getContactsOption, getSegmentsOption } from "./QueryOptions";
+import { getTemplatesOption } from "../templates/QueryOptions";
 import { useAuth } from "@/app/components/auth-provider";
+import { Textarea } from "@/components/ui/textarea";
+import type { TemplateItem_ } from "@/app/components/dashboard/dashboard-data";
+import moment from "moment";
 
 const NEW_SEGMENT_VALUE = "__new_segment__";
 
@@ -109,23 +109,6 @@ const NEW_SEGMENT_VALUE = "__new_segment__";
 //         },
 //     ];
 // }
-
-// ─── Status badge helper ──────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: ContactStatus }) {
-    const map: Record<ContactStatus, string> = {
-        Subscribed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        "Opted Out": "bg-red-50 text-red-700 border-red-200",
-        Undeliverable: "bg-amber-50 text-amber-700 border-amber-200",
-    };
-    return (
-        <Badge
-            variant="outline"
-            className={`text-[11px] font-medium ${map[status]}`}
-        >
-            {status}
-        </Badge>
-    );
-}
 
 // ─── Segment sidebar card ─────────────────────────────────────────────────────
 function SegmentCard({
@@ -175,16 +158,29 @@ function SegmentCard({
 function NewSegmentDialog() {
     const [open, setOpen] = useState(false);
     const [color, setColor] = useState("#6366f1");
+    const queryClient = useQueryClient();
 
     const [segmentState, addSegmentAction, segmentPending] = useActionState(add_segment, undefined);
 
     // Close dialog and update local list on success
     useEffect(() => {
         if (segmentState?.success) {
-            const timer = window.setTimeout(() => setOpen(false), 0);
-            return () => window.clearTimeout(timer);
+            let cancelled = false;
+
+            void (async () => {
+                await queryClient.invalidateQueries({ queryKey: ["get-segments"] });
+
+                if (!cancelled) {
+                    setColor("#6366f1");
+                    setOpen(false);
+                }
+            })();
+
+            return () => {
+                cancelled = true;
+            };
         }
-    }, [segmentState]);
+    }, [queryClient, segmentState]);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -266,7 +262,9 @@ function NewSegmentDialog() {
                         <Button variant="outline" onClick={() => setOpen(false)}>
                             Cancel
                         </Button>
-                        <Button type="submit">Create Segment</Button>
+                        <Button type="submit" disabled={segmentPending}>
+                            {segmentPending ? "Creating..." : "Create Segment"}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -415,7 +413,7 @@ function ImportDialog({ segments }: { segments: SegmentItem[] }) {
 }
 
 // ─── Add Contact Dialog ──────────────────────────────────────────────────────
-function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void, segments: SegmentItem[] }) {
+function AddContactDialog({ segments }: { segments: SegmentItem[] }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
@@ -458,13 +456,23 @@ function AddContactDialog({ onAdd, segments }: { onAdd: (c: ContactItem) => void
             //     joinedAt: "Mar 4, 2026",
             //     tags: [],
             // });
-            const timer = window.setTimeout(() => {
-                resetForm();
-                setOpen(false);
-                queryClient.invalidateQueries({ queryKey: ["get-contacts"] });
-                queryClient.invalidateQueries({ queryKey: ["get-segments"] });
-            }, 0);
-            return () => window.clearTimeout(timer);
+            let cancelled = false;
+
+            void (async () => {
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ["get-contacts"] }),
+                    queryClient.invalidateQueries({ queryKey: ["get-segments"] }),
+                ]);
+
+                if (!cancelled) {
+                    resetForm();
+                    setOpen(false);
+                }
+            })();
+
+            return () => {
+                cancelled = true;
+            };
         }
     }, [state, queryClient, resetForm]);
 
@@ -685,6 +693,242 @@ function MoveToSegmentDialog({
     );
 }
 
+type CampaignContactTarget = {
+    id: string;
+    full_name?: string | null;
+    phone_no?: string | number | null;
+};
+
+function AudienceCampaignDialog({
+    contacts,
+    templates,
+    onSent,
+}: {
+    contacts: CampaignContactTarget[];
+    templates: TemplateItem_[];
+    onSent: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [formKey, setFormKey] = useState(0);
+    const [selectedTemplateId, setSelectedTemplateId] = useState("");
+    const [messageMode, setMessageMode] = useState<"template" | "custom">("template");
+    const [customMessage, setCustomMessage] = useState("");
+    const [sendImmediately, setSendImmediately] = useState(true);
+    const [scheduleTime, setScheduleTime] = useState("");
+    const [state, action, pending] = useActionState(add_campaign, undefined);
+
+    const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
+    const messageBody = messageMode === "template" ? selectedTemplate?.body ?? "" : customMessage;
+    const smsParts = Math.max(1, Math.ceil(messageBody.length / 160));
+    const dispatchError = state?.errors?._dispatch?.[0];
+    const canSubmit = Boolean(
+        contacts.length > 0 &&
+        messageBody.trim().length > 0 &&
+        (messageMode === "custom" || selectedTemplateId) &&
+        (sendImmediately || scheduleTime)
+    );
+    const campaignName = `Selected contacts - ${moment().format("MMM D, h:mm A")}`;
+
+    useEffect(() => {
+        if (state?.success && !dispatchError) {
+            onSent();
+            const timer = window.setTimeout(() => setOpen(false), 0);
+            return () => window.clearTimeout(timer);
+        }
+    }, [dispatchError, onSent, state?.success]);
+
+    function handleOpenChange(value: boolean) {
+        setOpen(value);
+        if (!value) {
+            setSelectedTemplateId("");
+            setMessageMode("template");
+            setCustomMessage("");
+            setSendImmediately(true);
+            setScheduleTime("");
+        } else {
+            setFormKey((key) => key + 1);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                    <Send className="h-3 w-3" /> Send Campaign
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <form key={formKey} action={action}>
+                    <DialogHeader>
+                        <DialogTitle>Send Campaign</DialogTitle>
+                        <DialogDescription>Create a campaign for the selected contacts.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-3">
+                        <input type="hidden" name="campaign_name" value={campaignName} />
+                        <input type="hidden" name="message_mode" value={messageMode} />
+                        <input type="hidden" name="message_body" value={messageBody} />
+                        <input
+                            type="hidden"
+                            name="send_immediately"
+                            value={sendImmediately ? "true" : "false"}
+                        />
+                        {contacts.map((contact) => (
+                            <input key={contact.id} type="hidden" name="contact_ids" value={contact.id} />
+                        ))}
+
+                        <div className="rounded-md border bg-muted/30 p-3">
+                            <p className="text-sm font-medium">
+                                {contacts.length.toLocaleString()} selected contact{contacts.length === 1 ? "" : "s"}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                                {contacts
+                                    .slice(0, 3)
+                                    .map((contact) => contact.full_name || String(contact.phone_no ?? "Unnamed contact"))
+                                    .join(", ")}
+                                {contacts.length > 3 ? `, +${contacts.length - 3} more` : ""}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <label className="flex items-center gap-2 text-sm font-medium">
+                                    <MessageSquareText className="size-4 text-muted-foreground" />
+                                    Message
+                                </label>
+                                <Tabs
+                                    value={messageMode}
+                                    onValueChange={(value) => setMessageMode(value as "template" | "custom")}
+                                >
+                                    <TabsList className="grid h-9 w-full grid-cols-2">
+                                        <TabsTrigger value="template">Template</TabsTrigger>
+                                        <TabsTrigger value="custom">Custom</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </div>
+                            {messageMode === "template" && (
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium">Template</label>
+                                    <Select
+                                        name="template_id"
+                                        value={selectedTemplateId}
+                                        onValueChange={setSelectedTemplateId}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Choose template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {templates.map((template) => (
+                                                <SelectItem key={template.id} value={template.id}>
+                                                    {template.template_name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {state?.errors?.template_id && (
+                                        <p className="text-xs text-destructive">{state.errors.template_id[0]}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="rounded-md border bg-muted/30 p-3">
+                            <Textarea
+                                rows={5}
+                                value={messageBody}
+                                onChange={(event) => setCustomMessage(event.target.value)}
+                                placeholder={
+                                    messageMode === "template"
+                                        ? "Pick a template to preview the message."
+                                        : "Type the message you want to send."
+                                }
+                                className="resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                                readOnly={messageMode === "template"}
+                            />
+                            {state?.errors?.message_body && (
+                                <p className="mt-2 text-xs text-destructive">{state.errors.message_body[0]}</p>
+                            )}
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                <Badge variant="secondary" className="font-normal">
+                                    {messageBody.length} chars
+                                </Badge>
+                                <Badge variant="outline" className="font-normal">
+                                    {smsParts} SMS part{smsParts === 1 ? "" : "s"}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="text-sm font-medium">Delivery</label>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    className={`flex items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                                        sendImmediately
+                                            ? "border-primary bg-primary/5 text-primary"
+                                            : "bg-background hover:bg-muted/50"
+                                    }`}
+                                    onClick={() => setSendImmediately(true)}
+                                >
+                                    <Send className="size-4" />
+                                    <span>
+                                        <span className="block text-sm font-medium">Send now</span>
+                                        <span className="block text-xs text-muted-foreground">Start delivery right away</span>
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`flex items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                                        !sendImmediately
+                                            ? "border-primary bg-primary/5 text-primary"
+                                            : "bg-background hover:bg-muted/50"
+                                    }`}
+                                    onClick={() => setSendImmediately(false)}
+                                >
+                                    <Clock className="size-4" />
+                                    <span>
+                                        <span className="block text-sm font-medium">Schedule</span>
+                                        <span className="block text-xs text-muted-foreground">Pick a later date and time</span>
+                                    </span>
+                                </button>
+                            </div>
+                            {!sendImmediately && (
+                                <div className="relative">
+                                    <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        type="datetime-local"
+                                        name="schedule_time"
+                                        value={scheduleTime}
+                                        onChange={(event) => setScheduleTime(event.target.value)}
+                                        className="pl-9"
+                                    />
+                                </div>
+                            )}
+                            {state?.errors?.schedule_time && (
+                                <p className="text-xs text-destructive">{state.errors.schedule_time[0]}</p>
+                            )}
+                            {state?.errors?.segment_id && (
+                                <p className="text-xs text-destructive">{state.errors.segment_id[0]}</p>
+                            )}
+                            {state?.errors?.form && (
+                                <p className="text-xs text-destructive">{state.errors.form[0]}</p>
+                            )}
+                            {dispatchError && <p className="text-xs text-amber-600">{dispatchError}</p>}
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" type="button" onClick={() => setOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={pending || !canSubmit}>
+                            {pending ? "Saving..." : sendImmediately ? "Send Now" : "Schedule"}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AudiencePage() {
     const { activeWorkspace } = useAuth();
@@ -692,7 +936,6 @@ export default function AudiencePage() {
 
     // const [contacts, setContacts] = useState([...contactItems]);
     const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
-    const [statusFilter, setStatusFilter] = useState<"all" | ContactStatus>("all");
     const [search, setSearch] = useState("");
     const [sortBy, setSortBy] = useState("name");
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -751,6 +994,7 @@ export default function AudiencePage() {
     const { data: segments } = useQuery(
         getSegmentsOption(workspaceId)
     )
+    const { data: templatesData } = useQuery(getTemplatesOption(workspaceId))
 
     const {
         data: contacts = [],
@@ -780,6 +1024,25 @@ export default function AudiencePage() {
         return visible;
     }, [activeSegmentId, contacts, search, sortBy]);
 
+    const selectedContactsForCampaign = useMemo(
+        () =>
+            contacts
+                .filter((contact) => selected.has(contact.id))
+                .map((contact) => ({
+                    id: contact.id,
+                    full_name: contact.full_name,
+                    phone_no: contact.phone_no,
+                })),
+        [contacts, selected]
+    );
+
+    const handleCampaignSent = useCallback(() => {
+        setSelected(new Set());
+        queryClient.invalidateQueries({ queryKey: ["get-campaigns"] });
+        queryClient.invalidateQueries({ queryKey: ["campaign-status-counts"] });
+        queryClient.invalidateQueries({ queryKey: ["campaign-stats"] });
+    }, [queryClient]);
+
     return (
         <DashboardLayout>
             <div className="flex flex-col flex-1 min-w-0">
@@ -794,8 +1057,7 @@ export default function AudiencePage() {
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             <ImportDialog segments={segments as SegmentItem[]} />
-                            <AddContactDialog segments={segments as SegmentItem[]} onAdd={(c) => { }} />
-                            <NewSegmentDialog />
+                            <AddContactDialog segments={segments as SegmentItem[]} />
                         </div>
                     </div>
 
@@ -869,9 +1131,11 @@ export default function AudiencePage() {
                                                 {selected.size} selected
                                             </span>
                                             <div className="flex items-center gap-1.5 ml-auto">
-                                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                                                    <Send className="h-3 w-3" /> Send Campaign
-                                                </Button>
+                                                <AudienceCampaignDialog
+                                                    contacts={selectedContactsForCampaign}
+                                                    templates={(templatesData as TemplateItem_[]) ?? []}
+                                                    onSent={handleCampaignSent}
+                                                />
                                                 <Button
                                                     size="sm"
                                                     variant="outline"

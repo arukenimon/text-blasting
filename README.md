@@ -8,17 +8,20 @@ A full-stack SMS campaign management platform for creating, scheduling, and trac
 - Real-time overview of key metrics — messages sent, delivery rate, reply rate, and opt-out rate
 - Campaign performance table with delivery progress bars and status badges
 - Quick Send panel for ad-hoc messaging
+- Workspace switcher and sending-health signal for gateway, delivery, and audience quality
 - Activity feed for recent events
 - Compliance health score
 
 ### 📣 Campaign Management
-- Create and schedule SMS campaigns linked to audience segments and templates
+- Create and schedule SMS campaigns for full audience segments or selected contacts
+- Compose campaigns from approved templates or one-off custom messages
 - Track delivery metrics per campaign (sent, delivered, replies, opt-outs)
-- Campaign statuses: Draft, Scheduled, Running, Completed, Paused
+- Campaign statuses: Draft, Scheduled, Running, Completed, Paused, Failed
 
 ### 👥 Audience Management
 - Create audience segments with custom names, descriptions, and color labels
-- Add individual contacts with phone number and segment assignment
+- Add individual contacts or import contact lists into a selected segment
+- Bulk select contacts to move, delete, or launch a selected-contact campaign
 - Contact status tracking: Subscribed, Opted Out, Undeliverable
 
 ### 📝 Template Builder
@@ -28,16 +31,20 @@ A full-stack SMS campaign management platform for creating, scheduling, and trac
 - Approval workflow: Approved, Pending, Rejected
 
 ### ⚙️ Settings
+- **Workspace** — Rename the active workspace, invite team members, resend/cancel invites, and manage roles or removals
 - **Security** — Change password with validation
-- **SMS Gateway** — Configure local (on-device) or cloud-based SMS gateway credentials
+- **SMS Gateway** — Configure workspace-scoped local or cloud SMS gateway credentials
 
 ### 🔗 Webhook System
 - Receives real-time delivery events from the SMS gateway (sent, delivered, failed, received, etc.)
 - HMAC-SHA256 signature verification with replay protection
 - Auto-registers webhooks when gateway credentials are saved
+- Sending-health endpoint summarizes gateway availability, recent delivery results, and audience quality
 
 ### 🔐 Authentication
 - Email/password authentication via Supabase Auth
+- Email verification, password recovery, magic links, and team invites use Supabase Auth email templates with token-hash verification
+- Invite acceptance and completion flows support both existing users and newly invited users
 - Middleware-based route protection with automatic redirects
 
 ## Tech Stack
@@ -101,7 +108,8 @@ NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 
-WEBHOOK_URL=<your-webhook-endpoint>
+NEXT_PUBLIC_SITE_URL=<your-site-url>
+WEBHOOK_BASE_URL=<your-public-webhook-base-url>
 WEBHOOK_SECRET=<your-webhook-secret>
 
 SMS_GATEWAY_USERNAME=<cloud-gateway-username>
@@ -112,13 +120,30 @@ LOCAL_API_USERNAME=<local-username>
 LOCAL_API_PASSWORD=<local-password>
 ```
 
+### Production Auth Email
+
+Configure production Auth email delivery in the Supabase dashboard, not through client-side app code:
+
+- Enable email confirmations in Authentication > Providers > Email.
+- Configure custom SMTP with Brevo:
+  - Host: `smtp-relay.brevo.com`
+  - Port: `587`
+  - User: Brevo SMTP login
+  - Password: Brevo SMTP key, not an API key
+  - Sender: a verified auth sender such as `no-reply@your-domain`
+- Set the Supabase Site URL to `NEXT_PUBLIC_SITE_URL`.
+- Set `WEBHOOK_BASE_URL` to the public app origin used for generated webhook URLs.
+- Add allowed redirect URLs for `/auth/confirm`, `/reset-password`, `/invite/**`, `/admin/**`, and local development URLs such as `http://127.0.0.1:3000/**`.
+- Match hosted Supabase email templates to `supabase/templates/*`, which route token-hash links through `/auth/confirm`.
+- Disable Brevo click/link tracking for auth emails if it rewrites links.
+
 ### Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser.
 
 ## Project Structure
 
@@ -129,20 +154,31 @@ app/
 │   ├── campaigns/     # Campaign management
 │   ├── dashboard/     # Overview dashboard
 │   ├── settings/      # Security & gateway config
-│   └── templates/     # SMS template builder
+│   ├── templates/     # SMS template builder
+│   └── workspaces/    # Workspace switching, invites, and team actions
 ├── api/
-│   ├── send-sms/      # SMS sending endpoint
-│   ├── webhook/       # Inbound webhook handler
-│   ├── register_webhook/
+│   ├── campaigns/     # Campaign dispatch endpoints
+│   ├── cron/          # Scheduled dispatch endpoint
+│   ├── send-sms/      # Direct SMS sending endpoint
+│   ├── sending-health/
+│   ├── webhooks/      # Inbound webhook handlers
+│   ├── register-webhooks/
 │   ├── list-webhooks/
-│   └── delete_webhook/
+│   └── delete-webhooks/
+├── auth/              # Supabase callback, confirm, success, and error routes
 ├── components/        # Shared app components
 │   └── dashboard/     # Dashboard-specific components
+├── forgot-password/   # Password recovery entry point
+├── invite/            # Workspace invite acceptance/completion
 ├── login/             # Login page
+├── reset-password/    # Password reset form/actions
 └── layout.tsx         # Root layout
 components/ui/         # shadcn/ui components
+lib/auth/              # Auth and request-origin helpers
+lib/sms-gateway/       # SMS gateway clients, events, and webhooks
 lib/supabase/          # Supabase client & server helpers
 supabase/migrations/   # Database migrations
+supabase/templates/    # Supabase Auth email templates
 ```
 
 ## SMS Gateway Modes

@@ -18,12 +18,13 @@ export type CampaignItem_ = {
     // campaigns.id is bigint in the existing schema → number on the client.
     id: number;
     campaign_name: string;
-    segment_id: string;
-    segments: SegmentItem;
+    contact_ids?: string[] | null;
+    segment_id: string | null;
+    segments: SegmentItem | null;
     templates: TemplateItem_ | null;
     template_id: string | null;
     message_body?: string | null;
-    scheduled_date: string;
+    scheduled_date: string | null;
     status?: CampaignStatus;
     started_at?: string | null;
     completed_at?: string | null;

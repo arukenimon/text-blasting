@@ -83,6 +83,9 @@ export function CampaignsTable({ items, totalCount = items.length }: CampaignsTa
                         <TableBody>
                             {items.map((item) => {
                                 const cfg = statusConfig[item.status ?? "Draft"];
+                                const audienceName = item.contact_ids?.length
+                                    ? "Selected Customers"
+                                    : item.segments?.name ?? "-";
                                 return (
                                     <TableRow key={item.id} className="group">
                                         <TableCell className="px-5">
@@ -93,7 +96,7 @@ export function CampaignsTable({ items, totalCount = items.length }: CampaignsTa
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary" className="font-normal">
-                                                {item.segments?.name ?? "-"}
+                                                {audienceName}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>

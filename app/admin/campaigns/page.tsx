@@ -76,6 +76,7 @@ import {
 import moment from "moment";
 import { useMessagesRealtime } from "@/lib/realtime/messages";
 import { useAuth } from "@/app/components/auth-provider";
+import { formatManilaDateTime, formatManilaDateTimeLocal } from "@/lib/date-time";
 
 const statusConfig: Record<
     CampaignStatus,
@@ -113,6 +114,10 @@ function formatCount(value: number) {
     return value > 0 ? value.toLocaleString() : "—";
 }
 
+function isFullyDelivered(stats?: { total: number; delivered: number }) {
+    return Boolean(stats && stats.total > 0 && stats.delivered === stats.total);
+}
+
 function formatLastSeen(value?: string) {
     if (!value) return "No check-in yet";
     const timestamp = new Date(value).getTime();
@@ -141,29 +146,35 @@ function DeliveryBar({ total, delivered }: { total: number; delivered: number })
 
 function CampaignAudienceCell({
     segment,
+    contactIds,
     workspaceId,
 }: {
-    segment?: SegmentItem;
+    segment?: SegmentItem | null;
+    contactIds?: string[] | null;
     workspaceId?: string | null;
 }) {
     const [open, setOpen] = useState(false);
+    const selectedContactIds = contactIds ?? [];
+    const isSelectedContactAudience = selectedContactIds.length > 0;
     const { data: preview, isFetching } = useQuery(
         getAudiencePreviewContactsOption({
             workspaceId,
             segmentId: segment?.id,
+            contactIds: selectedContactIds,
             enabled: open,
         })
     );
-    const contactCount = preview?.count ?? getContactCount(segment);
+    const contactCount = preview?.count ?? (isSelectedContactAudience ? selectedContactIds.length : getContactCount(segment ?? undefined));
     const visibleContacts = preview?.data ?? [];
     const remainingContacts = Math.max(0, contactCount - visibleContacts.length);
+    const audienceName = isSelectedContactAudience ? "Selected contacts" : segment?.name ?? "No audience";
 
     return (
         <HoverCard open={open} onOpenChange={setOpen}>
             <HoverCardTrigger asChild>
                 <Badge asChild variant="secondary" className="font-normal">
                     <button type="button" className="cursor-help">
-                        {segment?.name ?? "—"}
+                        {audienceName}
                     </button>
                 </Badge>
             </HoverCardTrigger>
@@ -173,7 +184,7 @@ function CampaignAudienceCell({
                         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                             Audience
                         </p>
-                        <p className="mt-1 text-sm font-semibold">{segment?.name ?? "No audience"}</p>
+                        <p className="mt-1 text-sm font-semibold">{audienceName}</p>
                         <p className="text-xs text-muted-foreground">
                             {contactCount.toLocaleString()} contact{contactCount === 1 ? "" : "s"}
                         </p>
@@ -605,7 +616,7 @@ function EditCampaignDialog({
         : customMessage;
 
     const scheduledValue = campaign.scheduled_date
-        ? new Date(campaign.scheduled_date).toISOString().slice(0, 16)
+        ? formatManilaDateTimeLocal(campaign.scheduled_date)
         : "";
 
     const { mutate, isPending } = useMutation({
@@ -640,6 +651,9 @@ function EditCampaignDialog({
                     <div className="space-y-4 py-2">
                         <input type="hidden" name="message_mode" value={messageMode} />
                         <input type="hidden" name="message_body" value={messageBody} />
+                        {(campaign.contact_ids ?? []).map((contactId) => (
+                            <input key={contactId} type="hidden" name="contact_ids" value={contactId} />
+                        ))}
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium">Campaign Name</label>
                             <Input
@@ -654,7 +668,7 @@ function EditCampaignDialog({
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium">Audience Segment</label>
-                                <Select name="segment_id" defaultValue={campaign.segment_id}>
+                                <Select name="segment_id" defaultValue={campaign.segment_id ?? undefined}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select segment" />
                                     </SelectTrigger>
@@ -1024,6 +1038,7 @@ export default function CampaignsPage() {
                                         const cfg = statusConfig[item.status ?? "Draft"];
                                         const isSending =
                                             sendCampaign.isPending && sendCampaign.variables === item.id;
+                                        const isLocked = isFullyDelivered(s);
                                         return (
                                             <TableRow key={item.id} className="group">
                                                 <TableCell className="px-6">
@@ -1033,7 +1048,11 @@ export default function CampaignsPage() {
                                                     </p>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <CampaignAudienceCell segment={item.segments} workspaceId={workspaceId} />
+                                                    <CampaignAudienceCell
+                                                        segment={item.segments}
+                                                        contactIds={item.contact_ids}
+                                                        workspaceId={workspaceId}
+                                                    />
                                                 </TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">
                                                     <CampaignMessageCell campaign={item} />
@@ -1066,7 +1085,7 @@ export default function CampaignsPage() {
                                                 </TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">
                                                     {item.scheduled_date
-                                                        ? moment(item.scheduled_date).format("MMM DD, YYYY h:mm A")
+                                                        ? formatManilaDateTime(item.scheduled_date)
                                                         : "—"}
                                                 </TableCell>
                                                 <TableCell className="pr-4">
@@ -1091,30 +1110,32 @@ export default function CampaignsPage() {
                                                     </Button>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon-xs"
-                                                                aria-label="Campaign actions"
-                                                            >
-                                                                <MoreHorizontal />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-44">
-                                                            <DropdownMenuItem onSelect={() => setEditingCampaign(item)}>
-                                                                Edit Campaign
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleDeleteCampaign.mutate(item.id)}
-                                                                className="text-destructive focus:text-destructive"
-                                                            >
-                                                                <Trash2 className="size-3.5" />
-                                                                Delete
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                    {isLocked ? null : (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon-xs"
+                                                                    aria-label="Campaign actions"
+                                                                >
+                                                                    <MoreHorizontal />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-44">
+                                                                <DropdownMenuItem onSelect={() => setEditingCampaign(item)}>
+                                                                    Edit Campaign
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleDeleteCampaign.mutate(item.id)}
+                                                                    className="text-destructive focus:text-destructive"
+                                                                >
+                                                                    <Trash2 className="size-3.5" />
+                                                                    Delete
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         );

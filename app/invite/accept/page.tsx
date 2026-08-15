@@ -23,12 +23,25 @@ export default async function AcceptInvitePage({
     return (
         <InviteResult
             title="Invitation could not be accepted"
-            message={result.error ?? 'The invite link is invalid or expired.'}
+            message={
+                result.error === 'Sign in to accept this invitation.'
+                    ? 'This invite token is present, but this browser is not signed in. Open the latest invitation email link, or sign in with the invited email address to continue.'
+                    : result.error ?? 'The invite link is invalid or expired.'
+            }
+            loginHref={`/login?redirectTo=${encodeURIComponent(`/invite/accept?token=${token}`)}`}
         />
     )
 }
 
-function InviteResult({ title, message }: { title: string; message: string }) {
+function InviteResult({
+    title,
+    message,
+    loginHref = '/login',
+}: {
+    title: string
+    message: string
+    loginHref?: string
+}) {
     return (
         <main className="grid min-h-screen place-items-center bg-muted/30 p-4">
             <Card className="w-full max-w-md">
@@ -38,7 +51,7 @@ function InviteResult({ title, message }: { title: string; message: string }) {
                 <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">{message}</p>
                     <Button asChild>
-                        <Link href="/login">Go to sign in</Link>
+                        <Link href={loginHref}>Go to sign in</Link>
                     </Button>
                 </CardContent>
             </Card>

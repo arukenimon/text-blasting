@@ -14,6 +14,7 @@ export type CampaignPageParams = {
 export type AudiencePreviewParams = {
     workspaceId?: string | null
     segmentId?: string | null
+    contactIds?: string[] | null
     enabled?: boolean
 }
 
@@ -165,19 +166,27 @@ export const getCampaignPageOption = ({
 export const getAudiencePreviewContactsOption = ({
     workspaceId,
     segmentId,
+    contactIds,
     enabled = true,
 }: AudiencePreviewParams) =>
     queryOptions({
-        queryKey: ['campaign-audience-preview', workspaceId, segmentId],
-        enabled: Boolean(enabled && workspaceId && segmentId),
+        queryKey: ['campaign-audience-preview', workspaceId, segmentId, contactIds ?? []],
+        enabled: Boolean(enabled && workspaceId && (segmentId || contactIds?.length)),
         queryFn: async () => {
-            const { data, error, count } = await supabase
+            let query = supabase
                 .from('contacts')
                 .select('id, full_name, phone_no', { count: 'exact' })
                 .eq('workspace_id', workspaceId)
-                .eq('segment_id', segmentId)
                 .order('created_at', { ascending: false })
                 .limit(5)
+
+            if (contactIds?.length) {
+                query = query.in('id', contactIds)
+            } else {
+                query = query.eq('segment_id', segmentId)
+            }
+
+            const { data, error, count } = await query
 
             if (error) throw new Error(error.message)
 

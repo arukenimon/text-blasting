@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000";
 
 export const metadata: Metadata = {
     title: "Text Blasting | SMS Campaign Management Platform",
@@ -310,7 +310,7 @@ export default function Home() {
                         },
                         {
                             title: "Compliance-aware operations",
-                            body: "Keep opt-out and delivery health visible while organizing audiences for targeted sends.",
+                            body: "Keep delivery health visible while organizing audiences for targeted sends.",
                             icon: ShieldCheck,
                         },
                         {

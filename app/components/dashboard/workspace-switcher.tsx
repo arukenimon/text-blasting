@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, PlusCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import {
     Select,
     SelectContent,
     SelectItem,
+    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
@@ -64,6 +65,12 @@ export function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
                             <span className="ml-2 text-xs capitalize text-muted-foreground">{workspace.role}</span>
                         </SelectItem>
                     ))}
+                    <SelectSeparator />
+                    <SelectItem value="add-workspace-soon" disabled className="text-muted-foreground">
+                        <PlusCircle className="size-3.5" />
+                        <span className="truncate">Add New Workspace</span>
+                        <span className="ml-2 text-xs uppercase tracking-wide text-muted-foreground">Soon</span>
+                    </SelectItem>
                 </SelectContent>
             </Select>
         </div>

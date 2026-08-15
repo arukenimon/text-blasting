@@ -42,6 +42,7 @@ export type Database = {
       campaigns: {
         Row: {
           campaign_name: string | null
+          contact_ids: string[] | null
           created_at: string
           completed_at: string | null
           id: number
@@ -57,6 +58,7 @@ export type Database = {
         }
         Insert: {
           campaign_name?: string | null
+          contact_ids?: string[] | null
           created_at?: string
           completed_at?: string | null
           id?: number
@@ -72,6 +74,7 @@ export type Database = {
         }
         Update: {
           campaign_name?: string | null
+          contact_ids?: string[] | null
           created_at?: string
           completed_at?: string | null
           id?: number
