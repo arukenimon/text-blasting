@@ -83,7 +83,7 @@ export const navItems: NavItem[] = [
 export const statItems: StatItem[] = [
     { label: "Messages Sent", value: "0", trend: "0%", positive: true, accentColor: "border-violet-500" },
     { label: "Delivery Rate", value: "0%", trend: "0%", positive: true, accentColor: "border-emerald-500" },
-    { label: "Reply Rate", value: "0%", trend: "0%", positive: true, accentColor: "border-sky-500" },
+    { label: "Failed Messages", value: "0", trend: "0%", positive: true, accentColor: "border-red-500" },
     { label: "Opt-out Rate", value: "0%", trend: "0%", positive: true, accentColor: "border-amber-500" },
 ];
 

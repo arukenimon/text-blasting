@@ -34,7 +34,7 @@ const pageCopy: Record<string, { eyebrow: string; title: string; description: st
     "/admin/reports": {
         eyebrow: "Analytics",
         title: "Reports",
-        description: "Review delivery performance, reply engagement, and audience health.",
+        description: "Review outbound delivery performance and audience health.",
     },
     "/admin/settings": {
         eyebrow: "Configuration",

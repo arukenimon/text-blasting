@@ -16,15 +16,21 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000"),
   title: {
-    default: "Text Blasting | SMS Campaign Management Platform",
+    default: "SMS Gate Campaign Dashboard | Text Blasting",
     template: "%s | Text Blasting",
   },
   description:
-    "Create, schedule, send, and track SMS campaigns with audience segments, reusable templates, gateway settings, webhooks, and delivery reporting.",
+    "An independent project built on SMS Gate for importing contacts, scheduling outbound campaigns, and tracking delivery from shared workspaces.",
   applicationName: "Text Blasting",
   authors: [{ name: "Text Blasting" }],
   creator: "Text Blasting",
   publisher: "Text Blasting",
+  category: "business software",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
   robots: {
     index: true,
     follow: true,

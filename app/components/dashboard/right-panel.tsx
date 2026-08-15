@@ -41,7 +41,7 @@ type RightPanelProps = {
 
 export function RightPanel({ segments, activities }: RightPanelProps) {
     const defaultMsg =
-        "Hey {{full_name}}, your early access starts now. Reply YES to claim your offer.";
+        "Hi {{full_name}}, your order is ready for pickup. Please show this message at the counter.";
     const queryClient = useQueryClient();
     const [message, setMessage] = useState(defaultMsg);
     const [campaignName, setCampaignName] = useState("");

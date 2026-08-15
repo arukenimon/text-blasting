@@ -289,7 +289,7 @@ type PeriodMessageStats = {
     sent: number
     attempted: number
     delivered: number
-    replies: number
+    failed: number
 }
 
 const SENT_STATUSES = new Set(['queued', 'sent', 'delivered'])
@@ -301,7 +301,7 @@ function within(value: string, start: Date, end: Date) {
 }
 
 function getPeriodMessageStats(messages: DashboardMessageRow[], start: Date, end: Date): PeriodMessageStats {
-    const stats: PeriodMessageStats = { sent: 0, attempted: 0, delivered: 0, replies: 0 }
+    const stats: PeriodMessageStats = { sent: 0, attempted: 0, delivered: 0, failed: 0 }
 
     for (const message of messages) {
         if (!within(message.created_at, start, end)) continue
@@ -309,9 +309,7 @@ function getPeriodMessageStats(messages: DashboardMessageRow[], start: Date, end
             if (SENT_STATUSES.has(message.status)) stats.sent += 1
             if (ATTEMPTED_STATUSES.has(message.status)) stats.attempted += 1
             if (message.status === 'delivered') stats.delivered += 1
-        }
-        if (message.direction === 'inbound' || message.status === 'received') {
-            stats.replies += 1
+            if (message.status === 'failed') stats.failed += 1
         }
     }
 
@@ -380,14 +378,12 @@ export const getDashboardStatsOption = (workspaceId?: string | null) =>
             const previous = getPeriodMessageStats(messages, previousStart, currentStart)
             const deliveryRate = percent(current.delivered, current.attempted)
             const previousDeliveryRate = percent(previous.delivered, previous.attempted)
-            const replyRate = percent(current.replies, current.sent)
-            const previousReplyRate = percent(previous.replies, previous.sent)
             const optOut = getOptOutSnapshot(contacts)
             const previousOptOut = getOptOutSnapshot(contacts, currentStart)
 
             const sentDelta = percentChange(current.sent, previous.sent)
             const deliveryDelta = deliveryRate - previousDeliveryRate
-            const replyDelta = replyRate - previousReplyRate
+            const failedDelta = percentChange(current.failed, previous.failed)
             const optOutDelta = optOut.rate - previousOptOut.rate
 
             return [
@@ -406,11 +402,11 @@ export const getDashboardStatsOption = (workspaceId?: string | null) =>
                     accentColor: 'border-emerald-500',
                 },
                 {
-                    label: 'Reply Rate',
-                    value: `${replyRate}%`,
-                    trend: formatDelta(replyDelta, ' pts'),
-                    positive: replyDelta >= 0,
-                    accentColor: 'border-sky-500',
+                    label: 'Failed Messages',
+                    value: current.failed.toLocaleString(),
+                    trend: formatDelta(failedDelta),
+                    positive: failedDelta <= 0,
+                    accentColor: 'border-red-500',
                 },
                 {
                     label: 'Opt-out Rate',

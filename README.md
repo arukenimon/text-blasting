@@ -1,21 +1,21 @@
 # 📱 Text Blasting
 
-A full-stack SMS campaign management platform for creating, scheduling, and tracking bulk text message campaigns. Built with Next.js, Supabase, and Tailwind CSS.
+An independent full-stack project exploring how a team campaign dashboard can make [SMS Gate](https://sms-gate.app/) more useful for recurring outbound messaging. Built with Next.js, Supabase, and Tailwind CSS.
+
+> **Project status:** Text Blasting is a project preview, not an SMS carrier or a replacement for SMS Gate. Sending requires an Android device running [SMS Gateway for Android](https://docs.sms-gate.app/getting-started/), an SMS Gate cloud setup, and the corresponding API credentials.
 
 ## Features
 
 ### 📊 Dashboard
-- Real-time overview of key metrics — messages sent, delivery rate, reply rate, and opt-out rate
+- Real-time overview of messages sent, delivery rate, failed messages, and opt-out rate
 - Campaign performance table with delivery progress bars and status badges
 - Quick Send panel for ad-hoc messaging
 - Workspace switcher and sending-health signal for gateway, delivery, and audience quality
-- Activity feed for recent events
-- Compliance health score
 
 ### 📣 Campaign Management
 - Create and schedule SMS campaigns for full audience segments or selected contacts
-- Compose campaigns from approved templates or one-off custom messages
-- Track delivery metrics per campaign (sent, delivered, replies, opt-outs)
+- Compose campaigns from reusable templates or one-off custom messages
+- Track sent, delivered, queued, and failed message totals per campaign
 - Campaign statuses: Draft, Scheduled, Running, Completed, Paused, Failed
 
 ### 👥 Audience Management
@@ -25,18 +25,17 @@ A full-stack SMS campaign management platform for creating, scheduling, and trac
 - Contact status tracking: Subscribed, Opted Out, Undeliverable
 
 ### 📝 Template Builder
-- Create reusable SMS templates with variable support (`{{first_name}}`, `{{promo_code}}`, etc.)
+- Create reusable SMS templates with `{{full_name}}` personalization
 - Template categories: Promotional, Transactional, Re-engagement, Welcome, Alert
 - Live phone preview with character counter (160 char SMS limit)
-- Approval workflow: Approved, Pending, Rejected
 
 ### ⚙️ Settings
 - **Workspace** — Rename the active workspace, invite team members, resend/cancel invites, and manage roles or removals
 - **Security** — Change password with validation
-- **SMS Gateway** — Configure workspace-scoped local or cloud SMS gateway credentials
+- **SMS Gate** — Configure workspace-scoped credentials for the public SMS Gate cloud API
 
 ### 🔗 Webhook System
-- Receives real-time delivery events from the SMS gateway (sent, delivered, failed, received, etc.)
+- Receives real-time outbound delivery events from SMS Gate (sent, delivered, and failed)
 - HMAC-SHA256 signature verification with replay protection
 - Auto-registers webhooks when gateway credentials are saved
 - Sending-health endpoint summarizes gateway availability, recent delivery results, and audience quality
@@ -58,7 +57,7 @@ A full-stack SMS campaign management platform for creating, scheduling, and trac
 | Auth | Supabase Auth + SSR |
 | State | TanStack React Query |
 | Validation | Zod |
-| SMS Gateway | sms-gate.app (cloud) / Local device gateway |
+| SMS delivery layer | [SMS Gate cloud API](https://docs.sms-gate.app/integration/api/) + SMS Gateway for Android |
 
 ## Getting Started
 
@@ -67,7 +66,8 @@ A full-stack SMS campaign management platform for creating, scheduling, and trac
 - Node.js 18+
 - Docker Desktop
 - Supabase CLI
-- SMS Gateway credentials (cloud or local)
+- An Android device running SMS Gateway for Android
+- SMS Gate cloud credentials from the app's Cloud server section
 
 ### Installation
 
@@ -181,14 +181,11 @@ supabase/migrations/   # Database migrations
 supabase/templates/    # Supabase Auth email templates
 ```
 
-## SMS Gateway Modes
+## SMS Gate Integration
 
-| Mode | Description |
-|------|-------------|
-| **Cloud** | Sends SMS via `api.sms-gate.app` managed service |
-| **Local** | Sends SMS through a local device acting as an SMS gateway on your network |
+Text Blasting connects to the public API at `api.sms-gate.app`. Workspace owners provide credentials from SMS Gateway for Android, and the project uses SMS Gate to queue messages, check sender-device availability, and receive webhooks that update outbound delivery status.
 
-Both modes support webhook events for delivery tracking and inbound message handling.
+SMS Gate and the connected Android device are responsible for actual SMS transport. Text Blasting supplies the higher-level workflow around contacts, segments, reusable templates, scheduling, team access, and reports.
 
 ## License
 

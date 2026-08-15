@@ -1,18 +1,18 @@
-import { CheckCircle2, MessageCircle, Send, TrendingDown, TrendingUp, UserMinus } from "lucide-react";
+import { CheckCircle2, Send, TrendingDown, TrendingUp, TriangleAlert, UserMinus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { StatItem } from "./dashboard-data";
 
 const iconMap: Record<string, React.ElementType> = {
     "Messages Sent": Send,
     "Delivery Rate": CheckCircle2,
-    "Reply Rate": MessageCircle,
+    "Failed Messages": TriangleAlert,
     "Opt-out Rate": UserMinus,
 };
 
 const accentMap: Record<string, string> = {
     "Messages Sent": "bg-primary/10 text-primary",
     "Delivery Rate": "bg-emerald-500/10 text-emerald-700",
-    "Reply Rate": "bg-sky-500/10 text-sky-700",
+    "Failed Messages": "bg-red-500/10 text-red-700",
     "Opt-out Rate": "bg-amber-500/12 text-amber-700",
 };
 

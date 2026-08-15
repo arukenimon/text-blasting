@@ -15,7 +15,6 @@ export type ReportBucket = {
     label: string
     sent: number
     delivered: number
-    replies: number
     failed: number
 }
 
@@ -33,7 +32,6 @@ export type TopCampaignReport = {
     sent: number
     delivered: number
     failed: number
-    replies: number
     deliveryRate: number
 }
 
@@ -126,7 +124,7 @@ function getCampaignAudience(campaign?: CampaignRow) {
 }
 
 function getPeriodStats(messages: MessageRow[], start: Date, end: Date) {
-    const stats = { sent: 0, attempted: 0, delivered: 0, failed: 0, replies: 0 }
+    const stats = { sent: 0, attempted: 0, delivered: 0, failed: 0 }
     for (const message of messages) {
         if (!isWithin(message.created_at, start, end)) continue
         if (message.direction === 'outbound') {
@@ -134,9 +132,6 @@ function getPeriodStats(messages: MessageRow[], start: Date, end: Date) {
             if (ATTEMPTED_STATUSES.has(message.status)) stats.attempted += 1
             if (message.status === 'delivered') stats.delivered += 1
             if (message.status === 'failed') stats.failed += 1
-        }
-        if (message.direction === 'inbound' || message.status === 'received') {
-            stats.replies += 1
         }
     }
     return stats
@@ -154,7 +149,6 @@ function buildBuckets(messages: MessageRow[], start: Date, end: Date, range: Rep
             label: formatBucketLabel(date, range),
             sent: 0,
             delivered: 0,
-            replies: 0,
             failed: 0,
         }
     })
@@ -170,9 +164,6 @@ function buildBuckets(messages: MessageRow[], start: Date, end: Date, range: Rep
             if (SENT_STATUSES.has(message.status)) bucket.sent += 1
             if (message.status === 'delivered') bucket.delivered += 1
             if (message.status === 'failed') bucket.failed += 1
-        }
-        if (message.direction === 'inbound' || message.status === 'received') {
-            bucket.replies += 1
         }
     }
 
@@ -200,18 +191,15 @@ function buildTopCampaigns(
     end: Date
 ): TopCampaignReport[] {
     const campaignMap = new Map(campaigns.map((campaign) => [campaign.id, campaign]))
-    const stats = new Map<number, { sent: number; delivered: number; failed: number; replies: number }>()
+    const stats = new Map<number, { sent: number; delivered: number; failed: number }>()
 
     for (const message of messages) {
         if (!message.campaign_id || !isWithin(message.created_at, start, end)) continue
-        const bucket = stats.get(message.campaign_id) ?? { sent: 0, delivered: 0, failed: 0, replies: 0 }
+        const bucket = stats.get(message.campaign_id) ?? { sent: 0, delivered: 0, failed: 0 }
         if (message.direction === 'outbound') {
             if (SENT_STATUSES.has(message.status)) bucket.sent += 1
             if (message.status === 'delivered') bucket.delivered += 1
             if (message.status === 'failed') bucket.failed += 1
-        }
-        if (message.direction === 'inbound' || message.status === 'received') {
-            bucket.replies += 1
         }
         stats.set(message.campaign_id, bucket)
     }
@@ -227,7 +215,6 @@ function buildTopCampaigns(
                 sent: bucket.sent,
                 delivered: bucket.delivered,
                 failed: bucket.failed,
-                replies: bucket.replies,
                 deliveryRate: percent(bucket.delivered, bucket.sent + bucket.failed),
             }
         })
@@ -287,8 +274,6 @@ export const getReportsOption = (workspaceId?: string | null, range: ReportRange
             const previous = getPeriodStats(messages, previousStart, currentStart)
             const deliveryRate = percent(current.delivered, current.attempted)
             const previousDeliveryRate = percent(previous.delivered, previous.attempted)
-            const replyRate = percent(current.replies, current.sent)
-            const previousReplyRate = percent(previous.replies, previous.sent)
             const failureRate = percent(current.failed, current.attempted)
             const previousFailureRate = percent(previous.failed, previous.attempted)
 
@@ -308,13 +293,6 @@ export const getReportsOption = (workspaceId?: string | null, range: ReportRange
                         detail: `${current.delivered.toLocaleString()} delivered`,
                         change: formatChange(deliveryRate - previousDeliveryRate, ' pts'),
                         positive: deliveryRate >= previousDeliveryRate,
-                    },
-                    {
-                        label: 'Reply Rate',
-                        value: `${replyRate}%`,
-                        detail: `${current.replies.toLocaleString()} replies`,
-                        change: formatChange(replyRate - previousReplyRate, ' pts'),
-                        positive: replyRate >= previousReplyRate,
                     },
                     {
                         label: 'Failure Rate',

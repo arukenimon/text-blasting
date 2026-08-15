@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
     BarChart3,
     CheckCircle2,
-    MessageCircle,
     Send,
     TrendingDown,
     TrendingUp,
@@ -43,7 +42,6 @@ const rangeLabels: Record<ReportRange, string> = {
 const summaryIcons: Record<string, ElementType> = {
     "Messages Sent": Send,
     "Delivery Rate": CheckCircle2,
-    "Reply Rate": MessageCircle,
     "Failure Rate": TriangleAlert,
 };
 
@@ -61,7 +59,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 
 function SummaryCards({ items }: { items: ReportSummaryItem[] }) {
     return (
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => {
                 const Icon = summaryIcons[item.label] ?? BarChart3;
                 const TrendIcon = item.positive ? TrendingUp : TrendingDown;
@@ -100,8 +98,8 @@ function SummaryCards({ items }: { items: ReportSummaryItem[] }) {
 }
 
 function VolumeChart({ buckets }: { buckets: ReportBucket[] }) {
-    const maxValue = Math.max(1, ...buckets.map((bucket) => bucket.sent + bucket.replies + bucket.failed));
-    const hasData = buckets.some((bucket) => bucket.sent || bucket.delivered || bucket.replies || bucket.failed);
+    const maxValue = Math.max(1, ...buckets.map((bucket) => bucket.sent + bucket.failed));
+    const hasData = buckets.some((bucket) => bucket.sent || bucket.delivered || bucket.failed);
 
     return (
         <Card className="gap-0 overflow-hidden py-0">
@@ -110,7 +108,7 @@ function VolumeChart({ buckets }: { buckets: ReportBucket[] }) {
                     <div>
                         <CardTitle className="text-base">Message Volume</CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Sent, delivered, replies, and failures by period.
+                            Sent, delivered, and failed outbound messages by period.
                         </p>
                     </div>
                     <Badge variant="secondary" className="font-normal">Live from messages</Badge>
@@ -120,28 +118,25 @@ function VolumeChart({ buckets }: { buckets: ReportBucket[] }) {
                 {!hasData ? (
                     <EmptyState
                         title="No message activity yet"
-                        body="Once campaigns send or contacts reply, volume trends will appear here."
+                        body="Once campaigns send, outbound volume trends will appear here."
                     />
                 ) : (
                     <div className="space-y-5">
                         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" /> Sent</span>
                             <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-emerald-500" /> Delivered</span>
-                            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-sky-500" /> Replies</span>
                             <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-destructive" /> Failed</span>
                         </div>
                         <div className="grid min-h-64 grid-cols-[repeat(var(--bucket-count),minmax(18px,1fr))] items-end gap-2" style={{ "--bucket-count": buckets.length } as CSSProperties}>
                             {buckets.map((bucket, index) => {
                                 const sentHeight = Math.max(4, (bucket.sent / maxValue) * 100);
                                 const deliveredHeight = Math.max(4, (bucket.delivered / maxValue) * 100);
-                                const replyHeight = Math.max(4, (bucket.replies / maxValue) * 100);
                                 const failedHeight = Math.max(4, (bucket.failed / maxValue) * 100);
                                 return (
                                     <div key={`${bucket.label}-${index}`} className="flex min-w-0 flex-col items-center gap-2">
                                         <div className="flex h-52 w-full max-w-16 items-end justify-center gap-1 rounded-md border bg-muted/20 px-1 pb-1">
                                             <span className="w-2 rounded-t bg-primary" style={{ height: `${bucket.sent ? sentHeight : 0}%` }} />
                                             <span className="w-2 rounded-t bg-emerald-500" style={{ height: `${bucket.delivered ? deliveredHeight : 0}%` }} />
-                                            <span className="w-2 rounded-t bg-sky-500" style={{ height: `${bucket.replies ? replyHeight : 0}%` }} />
                                             <span className="w-2 rounded-t bg-destructive" style={{ height: `${bucket.failed ? failedHeight : 0}%` }} />
                                         </div>
                                         <p className="truncate text-[11px] text-muted-foreground">{bucket.label}</p>
@@ -247,7 +242,6 @@ function TopCampaigns({
         sent: number;
         delivered: number;
         failed: number;
-        replies: number;
         deliveryRate: number;
     }[];
 }) {
@@ -271,7 +265,7 @@ function TopCampaigns({
                                 <TableHead className="text-xs font-semibold uppercase tracking-[0.12em]">Audience</TableHead>
                                 <TableHead className="text-xs font-semibold uppercase tracking-[0.12em]">Sent</TableHead>
                                 <TableHead className="text-xs font-semibold uppercase tracking-[0.12em]">Delivery</TableHead>
-                                <TableHead className="text-xs font-semibold uppercase tracking-[0.12em]">Replies</TableHead>
+                                <TableHead className="text-xs font-semibold uppercase tracking-[0.12em]">Failed</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -293,7 +287,7 @@ function TopCampaigns({
                                             <span className="text-xs tabular-nums text-muted-foreground">{item.deliveryRate}%</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="tabular-nums">{item.replies.toLocaleString()}</TableCell>
+                                    <TableCell className="tabular-nums">{item.failed.toLocaleString()}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -343,7 +337,6 @@ export default function ReportsPage() {
                         <SummaryCards items={data?.summary ?? [
                             { label: "Messages Sent", value: "0", detail: "Loading", change: "0%", positive: true },
                             { label: "Delivery Rate", value: "0%", detail: "Loading", change: "0 pts", positive: true },
-                            { label: "Reply Rate", value: "0%", detail: "Loading", change: "0 pts", positive: true },
                             { label: "Failure Rate", value: "0%", detail: "Loading", change: "0 pts", positive: true },
                         ]} />
 

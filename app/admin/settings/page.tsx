@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CheckCircle2, KeyRound, Loader2, UserMinus, UsersRound, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, KeyRound, Loader2, UserMinus, UsersRound, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -277,7 +277,7 @@ function SmsTab() {
         return (
             <Section
                 title="Workspace settings"
-                description="Gateway credentials, webhooks, and team management are available to owners and admins."
+                description="SMS Gate credentials, webhooks, and team management are available to owners and admins."
             >
                 <p className="text-sm text-muted-foreground">
                     Your role in {activeWorkspace?.name ?? "this workspace"} is member.
@@ -331,9 +331,23 @@ function SmsTab() {
                 </Section>
 
                 <Section
-                    title="SMS Gateway cloud server"
-                    description="Credentials from the SMS Gateway app's Cloud server section."
+                    title="SMS Gate cloud API"
+                    description="Connect this workspace to the public SMS Gate service."
                 >
+                    <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+                        <p className="font-medium">An Android sender device is required.</p>
+                        <p className="mt-1 text-xs leading-5 text-sky-800">
+                            Install SMS Gateway for Android, connect it to SMS Gate&apos;s cloud service, then enter the credentials from the app&apos;s Cloud server section below.
+                        </p>
+                        <a
+                            href="https://docs.sms-gate.app/getting-started/"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold underline underline-offset-4"
+                        >
+                            Open the SMS Gate setup guide <ExternalLink className="size-3" />
+                        </a>
+                    </div>
                     <Field label="Server address" error={state.errors.cloud_address?.[0]}>
                         <Input
                             name="cloud_address"
@@ -363,7 +377,7 @@ function SmsTab() {
 
                 <Section
                     title="Webhook"
-                    description="The SMS gateway pushes events to this URL. It is unique per workspace."
+                    description="SMS Gate pushes delivery events to this workspace-specific URL."
                 >
                     <Field label="Your webhook URL">
                         <Input value={webhookPreview} readOnly className="font-mono text-xs" />
@@ -380,11 +394,11 @@ function SmsTab() {
                         <p className="text-xs text-emerald-600">Signing key saved for webhook verification.</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                        Registered events on the gateway: <span className="font-medium">{registeredCount}</span>
+                        Registered events on SMS Gate: <span className="font-medium">{registeredCount}</span>
                     </p>
                     <div className="flex gap-2">
                         <Button type="button" variant="outline" size="sm" disabled={testing} onClick={handleTestConnection}>
-                            {testing ? <Loader2 className="size-4 animate-spin" /> : "Test connection"}
+                            {testing ? <Loader2 className="size-4 animate-spin" /> : "Test SMS Gate connection"}
                         </Button>
                         <Button type="button" variant="outline" size="sm" disabled={reregistering} onClick={handleReregister}>
                             {reregistering ? <Loader2 className="size-4 animate-spin" /> : "Re-register webhooks"}
@@ -707,7 +721,7 @@ export default function SettingsPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Configuration</p>
                 <h1 className="mt-1 text-3xl font-semibold tracking-tight">Settings</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Manage account security, SMS gateway credentials, and webhook registration.
+                    Manage account security, SMS Gate cloud credentials, and webhook registration.
                 </p>
             </header>
 

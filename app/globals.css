@@ -117,6 +117,10 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -126,5 +130,39 @@
   }
   ::selection {
     @apply bg-primary/20 text-foreground;
+  }
+}
+
+@keyframes landing-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+
+@keyframes landing-orbit {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(32px, -18px, 0) scale(1.08); }
+}
+
+.landing-float {
+  animation: landing-float 8s ease-in-out infinite;
+}
+
+.landing-orb {
+  animation: landing-orbit 12s ease-in-out infinite;
+}
+
+.landing-orb-delayed {
+  animation-delay: -5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .landing-float,
+  .landing-orb,
+  .landing-orb-delayed {
+    animation: none;
   }
 }
