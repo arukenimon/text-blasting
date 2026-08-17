@@ -168,7 +168,7 @@ export function ProductOverview() {
     return (
         <div className="grid overflow-hidden rounded-2xl border bg-card shadow-[0_24px_70px_-42px_rgba(15,23,42,0.5)] lg:grid-cols-[0.9fr_1.1fr]">
             <div className="border-b p-3 sm:p-4 lg:border-b-0 lg:border-r">
-                <div role="tablist" aria-label="How Text Blasting works" className="grid gap-1.5">
+                <div role="tablist" aria-label="How Relay Campaigns works" className="grid gap-1.5">
                     {steps.map((step, index) => {
                         const Icon = step.icon;
                         const active = activeStep === index;

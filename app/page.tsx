@@ -18,13 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProductOverview } from "@/app/components/marketing/product-overview";
 import { Reveal } from "@/app/components/marketing/reveal";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-    title: "SMS Gate Campaign Dashboard | Text Blasting",
-    description:
-        "An independent project built on SMS Gate for importing contacts, scheduling outbound campaigns, and tracking delivery from shared workspaces.",
+    title: { absolute: "Relay Campaigns | SMS Campaign Management for SMS Gate" },
+    description: SITE_DESCRIPTION,
     keywords: [
         "SMS Gate campaign dashboard",
         "SMS Gateway for Android dashboard",
@@ -33,23 +31,23 @@ export const metadata: Metadata = {
         "SMS audience segmentation",
         "team SMS dashboard",
         "SMS delivery tracking",
+        "Relay Campaigns",
     ],
     alternates: {
         canonical: "/",
     },
     openGraph: {
-        title: "SMS Gate Campaign Dashboard | Text Blasting",
-        description:
-            "A project that adds contacts, segments, scheduling, team workspaces, and delivery reporting around the SMS Gate cloud API.",
-        url: siteUrl,
-        siteName: "Text Blasting",
+        title: "Relay Campaigns | SMS Campaign Management for SMS Gate",
+        description: SITE_DESCRIPTION,
+        url: SITE_URL,
+        siteName: SITE_NAME,
+        locale: "en_US",
         type: "website",
     },
     twitter: {
         card: "summary_large_image",
-        title: "SMS Gate Campaign Dashboard | Text Blasting",
-        description:
-            "Explore a team campaign dashboard built around SMS Gate and SMS Gateway for Android.",
+        title: "Relay Campaigns | SMS Campaign Management for SMS Gate",
+        description: SITE_DESCRIPTION,
     },
 };
 
@@ -84,19 +82,19 @@ const metrics = [
 
 const faqs = [
     {
-        question: "What is Text Blasting built for?",
+        question: "What is Relay Campaigns built for?",
         answer:
-            "Text Blasting is an independent project exploring a team operations layer for SMS Gate: contacts, audience segments, templates, campaign scheduling, workspaces, and outbound delivery reporting.",
+            "Relay Campaigns is an independent project exploring a team operations layer for SMS Gate: contacts, audience segments, templates, campaign scheduling, workspaces, and outbound delivery reporting.",
     },
     {
         question: "What do I need to use this project?",
         answer:
-            "You need an Android device running SMS Gateway for Android, an SMS Gate cloud setup, and its API credentials. Text Blasting does not replace the gateway or Android device.",
+            "You need an Android device running SMS Gateway for Android, an SMS Gate cloud setup, and its API credentials. Relay Campaigns does not replace the gateway or Android device.",
     },
     {
-        question: "How does Text Blasting send messages?",
+        question: "How does Relay Campaigns send messages?",
         answer:
-            "Text Blasting queues campaigns through the SMS Gate cloud API. SMS Gate routes each message to a connected Android device, which sends it through the selected SIM.",
+            "Relay Campaigns queues campaigns through the SMS Gate cloud API. SMS Gate routes each message to a connected Android device, which sends it through the selected SIM.",
     },
     {
         question: "What campaign results are visible?",
@@ -110,19 +108,19 @@ const structuredData = {
     "@graph": [
         {
             "@type": "WebSite",
-            "@id": `${siteUrl}/#website`,
-            name: "Text Blasting",
-            url: siteUrl,
-            description:
-                "An independent project that adds contact organization, SMS campaign scheduling, and delivery reporting around SMS Gate.",
+            "@id": `${SITE_URL}/#website`,
+            name: SITE_NAME,
+            url: SITE_URL,
+            description: SITE_DESCRIPTION,
         },
         {
             "@type": "SoftwareApplication",
-            "@id": `${siteUrl}/#software`,
-            name: "Text Blasting",
+            "@id": `${SITE_URL}/#software`,
+            name: SITE_NAME,
             applicationCategory: "BusinessApplication",
+            applicationSubCategory: "SMS campaign management",
             operatingSystem: "Web",
-            url: siteUrl,
+            url: SITE_URL,
             description:
                 "A project dashboard for contact imports, audience segments, reusable templates, SMS campaign scheduling, SMS Gate configuration, and outbound delivery reporting.",
             softwareRequirements:
@@ -139,7 +137,7 @@ const structuredData = {
         },
         {
             "@type": "FAQPage",
-            "@id": `${siteUrl}/#faq-schema`,
+            "@id": `${SITE_URL}/#faq-schema`,
             mainEntity: faqs.map(({ question, answer }) => ({
                 "@type": "Question",
                 name: question,
@@ -166,15 +164,15 @@ export default function Home() {
                 <div className="landing-orb landing-orb-delayed absolute -right-48 bottom-0 size-[34rem] rounded-full bg-sky-500/10 blur-3xl" />
 
                 <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-                    <Link href="/" className="flex items-center gap-3" aria-label="Text Blasting home">
+                    <Link href="/" className="flex items-center gap-3" aria-label="Relay Campaigns home">
                         <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-300 text-sm font-black text-slate-950">
-                            TB
+                            RC
                         </span>
                         <span>
                             <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100/75">
                                 SMS Ops
                             </span>
-                            <span className="font-semibold">Text Blasting</span>
+                            <span className="font-semibold">Relay Campaigns</span>
                         </span>
                     </Link>
                     <nav aria-label="Main navigation" className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
@@ -204,7 +202,7 @@ export default function Home() {
                             Send the right text. Track every delivery.
                         </h1>
                         <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-                            Text Blasting explores a team-friendly campaign layer for SMS Gate: import contacts,
+                            Relay Campaigns provides a team-friendly campaign layer for SMS Gate: import contacts,
                             build focused audiences, schedule outbound messages, and monitor delivery results.
                         </p>
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -403,7 +401,7 @@ export default function Home() {
                 <div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                         <Smartphone className="size-4 text-primary" />
-                        <span>Text Blasting · An SMS Gate campaign dashboard project</span>
+                        <span>Relay Campaigns · An SMS Gate campaign dashboard project</span>
                     </div>
                     <div className="flex items-center gap-4">
                         <a href="https://sms-gate.app/" target="_blank" rel="noreferrer" className="font-semibold text-foreground hover:text-primary">

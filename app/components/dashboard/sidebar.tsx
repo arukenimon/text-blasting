@@ -125,13 +125,13 @@ export function Sidebar({ items }: SidebarProps) {
         <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
             <div className="flex items-center gap-3 px-5 py-5">
                 <div className="flex size-10 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-black tracking-tight text-sidebar-primary-foreground">
-                    TB
+                    RC
                 </div>
                 <div className="min-w-0">
                     <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/55">
                         SMS Ops
                     </p>
-                    <p className="truncate text-base font-semibold">Text Blasting</p>
+                    <p className="truncate text-base font-semibold">Relay Campaigns</p>
                 </div>
             </div>
 

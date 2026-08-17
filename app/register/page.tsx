@@ -195,13 +195,13 @@ export default function RegisterPage() {
                     <div>
                         <div className="flex items-center gap-3">
                             <div className="flex size-11 items-center justify-center rounded-lg bg-emerald-300 text-sm font-black text-slate-950">
-                                TB
+                                RC
                             </div>
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100/70">
                                     SMS Operations
                                 </p>
-                                <h1 className="text-xl font-semibold">Text Blasting</h1>
+                                <h1 className="text-xl font-semibold">Relay Campaigns</h1>
                             </div>
                         </div>
 
@@ -236,13 +236,13 @@ export default function RegisterPage() {
                 <section className="mx-auto w-full max-w-md">
                     <div className="mb-6 flex items-center gap-3 lg:hidden">
                         <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-sm font-black text-primary-foreground">
-                            TB
+                            RC
                         </div>
                         <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                                 SMS Ops
                             </p>
-                            <p className="font-semibold">Text Blasting</p>
+                            <p className="font-semibold">Relay Campaigns</p>
                         </div>
                     </div>
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 import { Providers } from "./components/providers";
 
@@ -14,18 +15,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "SMS Gate Campaign Dashboard | Text Blasting",
-    template: "%s | Text Blasting",
+    default: "Relay Campaigns | SMS Campaign Management for SMS Gate",
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "An independent project built on SMS Gate for importing contacts, scheduling outbound campaigns, and tracking delivery from shared workspaces.",
-  applicationName: "Text Blasting",
-  authors: [{ name: "Text Blasting" }],
-  creator: "Text Blasting",
-  publisher: "Text Blasting",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
   category: "business software",
+  referrer: "origin-when-cross-origin",
+  manifest: "/manifest.webmanifest",
   formatDetection: {
     email: false,
     address: false,
@@ -34,7 +36,17 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
 };
 
 export default function RootLayout({

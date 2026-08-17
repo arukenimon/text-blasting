@@ -4,7 +4,7 @@ The production app can stay on Vercel while a VPS acts only as the scheduler.
 The VPS should call the protected cron endpoint once per minute:
 
 ```text
-POST https://your-app.vercel.app/api/cron/dispatch
+POST https://relaycampaigns.vercel.app/api/cron/dispatch
 Authorization: Bearer <CRON_SECRET>
 ```
 
@@ -24,7 +24,7 @@ crontab -e
 Add:
 
 ```cron
-* * * * * curl -fsS --retry 2 --retry-delay 5 --max-time 55 -X POST -H "Authorization: Bearer YOUR_CRON_SECRET" "https://your-app.vercel.app/api/cron/dispatch" >> /var/log/text-blasting-scheduler.log 2>&1
+* * * * * curl -fsS --retry 2 --retry-delay 5 --max-time 55 -X POST -H "Authorization: Bearer YOUR_CRON_SECRET" "https://relaycampaigns.vercel.app/api/cron/dispatch" >> /var/log/text-blasting-scheduler.log 2>&1
 ```
 
 Make sure the same `CRON_SECRET` value is configured in Vercel.

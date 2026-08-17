@@ -1,8 +1,8 @@
-# 📱 Text Blasting
+# 📱 Relay Campaigns
 
-An independent full-stack project exploring how a team campaign dashboard can make [SMS Gate](https://sms-gate.app/) more useful for recurring outbound messaging. Built with Next.js, Supabase, and Tailwind CSS.
+An independent full-stack project exploring how a team campaign dashboard can make [SMS Gate](https://sms-gate.app/) more useful for recurring outbound messaging. The production app is [relaycampaigns.vercel.app](https://relaycampaigns.vercel.app/). Built with Next.js, Supabase, and Tailwind CSS.
 
-> **Project status:** Text Blasting is a project preview, not an SMS carrier or a replacement for SMS Gate. Sending requires an Android device running [SMS Gateway for Android](https://docs.sms-gate.app/getting-started/), an SMS Gate cloud setup, and the corresponding API credentials.
+> **Project status:** Relay Campaigns is a project preview, not an SMS carrier or a replacement for SMS Gate. Sending requires an Android device running [SMS Gateway for Android](https://docs.sms-gate.app/getting-started/), an SMS Gate cloud setup, and the corresponding API credentials.
 
 ## Features
 
@@ -108,8 +108,9 @@ NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 
-NEXT_PUBLIC_SITE_URL=<your-site-url>
-WEBHOOK_BASE_URL=<your-public-webhook-base-url>
+NEXT_PUBLIC_SITE_URL=https://relaycampaigns.vercel.app
+WEBHOOK_BASE_URL=https://relaycampaigns.vercel.app
+GOOGLE_SITE_VERIFICATION=<optional-search-console-token>
 WEBHOOK_SECRET=<your-webhook-secret>
 
 SMS_GATEWAY_USERNAME=<cloud-gateway-username>
@@ -131,9 +132,9 @@ Configure production Auth email delivery in the Supabase dashboard, not through 
   - User: Brevo SMTP login
   - Password: Brevo SMTP key, not an API key
   - Sender: a verified auth sender such as `no-reply@your-domain`
-- Set the Supabase Site URL to `NEXT_PUBLIC_SITE_URL`.
+- Set the Supabase Site URL to `https://relaycampaigns.vercel.app`.
 - Set `WEBHOOK_BASE_URL` to the public app origin used for generated webhook URLs.
-- Add allowed redirect URLs for `/auth/confirm`, `/reset-password`, `/invite/**`, `/admin/**`, and local development URLs such as `http://127.0.0.1:3000/**`.
+- Add `https://relaycampaigns.vercel.app/**` to the Supabase Auth redirect allowlist. Keep local development URLs such as `http://127.0.0.1:3000/**` separately.
 - Match hosted Supabase email templates to `supabase/templates/*`, which route token-hash links through `/auth/confirm`.
 - Disable Brevo click/link tracking for auth emails if it rewrites links.
 
@@ -183,9 +184,11 @@ supabase/templates/    # Supabase Auth email templates
 
 ## SMS Gate Integration
 
-Text Blasting connects to the public API at `api.sms-gate.app`. Workspace owners provide credentials from SMS Gateway for Android, and the project uses SMS Gate to queue messages, check sender-device availability, and receive webhooks that update outbound delivery status.
+Relay Campaigns connects to the public API at `api.sms-gate.app`. Workspace owners provide credentials from SMS Gateway for Android, and the project uses SMS Gate to queue messages, check sender-device availability, and receive webhooks that update outbound delivery status.
 
-SMS Gate and the connected Android device are responsible for actual SMS transport. Text Blasting supplies the higher-level workflow around contacts, segments, reusable templates, scheduling, team access, and reports.
+SMS Gate and the connected Android device are responsible for actual SMS transport. Relay Campaigns supplies the higher-level workflow around contacts, segments, reusable templates, scheduling, team access, and reports.
+
+See [docs/domain-migration.md](docs/domain-migration.md) before changing the production hostname.
 
 ## License
 

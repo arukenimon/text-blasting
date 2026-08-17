@@ -38,13 +38,13 @@ export default function ForgotPasswordPage() {
                     <div>
                         <div className="flex items-center gap-3">
                             <div className="flex size-11 items-center justify-center rounded-lg bg-emerald-300 text-sm font-black text-slate-950">
-                                TB
+                                RC
                             </div>
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100/70">
                                     Account recovery
                                 </p>
-                                <h1 className="text-xl font-semibold">Text Blasting</h1>
+                                <h1 className="text-xl font-semibold">Relay Campaigns</h1>
                             </div>
                         </div>
 

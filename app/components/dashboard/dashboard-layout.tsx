@@ -12,13 +12,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     <div className="mb-4 rounded-lg border border-border/80 bg-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:hidden">
                         <div className="mb-3 flex items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-xs font-black text-primary-foreground">
-                                TB
+                                RC
                             </div>
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                                     SMS Ops
                                 </p>
-                                <p className="text-sm font-semibold">Text Blasting</p>
+                                <p className="text-sm font-semibold">Relay Campaigns</p>
                             </div>
                         </div>
                         <div className="mb-3">

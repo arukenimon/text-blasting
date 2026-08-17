@@ -246,22 +246,22 @@ otp_expiry = 3600
 # user = "env(BREVO_SMTP_USER)"
 # pass = "env(BREVO_SMTP_KEY)"
 # admin_email = "no-reply@example.com"
-# sender_name = "Text Blasting"
+# sender_name = "Relay Campaigns"
 
 [auth.email.template.confirmation]
-subject = "Confirm your Text Blasting account"
+subject = "Confirm your Relay Campaigns account"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Reset your Text Blasting password"
+subject = "Reset your Relay Campaigns password"
 content_path = "./supabase/templates/recovery.html"
 
 [auth.email.template.invite]
-subject = "You have been invited to Text Blasting"
+subject = "You have been invited to Relay Campaigns"
 content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.magic_link]
-subject = "You have been invited to Text Blasting"
+subject = "You have been invited to Relay Campaigns"
 content_path = "./supabase/templates/magic-link.html"
 
 # Uncomment to customize notification email template
