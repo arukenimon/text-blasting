@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 
-export const alt = "Relay Campaigns — SMS campaign management powered by SMS Gate";
+export const alt = "Relay Campaigns — free SMS campaign manager using your Android phone";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -46,7 +46,7 @@ export default function OpenGraphImage() {
                         </div>
                     </div>
                     <div style={{ fontSize: 68, fontWeight: 700, letterSpacing: -3, lineHeight: 1.05, marginTop: 70, maxWidth: 1000 }}>
-                        Send the right text. Track every delivery.
+                        Free SMS campaigns using your Android phone.
                     </div>
                     <div style={{ color: "#cbd5e1", fontSize: 27, lineHeight: 1.45, marginTop: 30, maxWidth: 980 }}>
                         {SITE_DESCRIPTION}

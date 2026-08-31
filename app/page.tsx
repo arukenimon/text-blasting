@@ -16,16 +16,19 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ProductOverview } from "@/app/components/marketing/product-overview";
+import { AndroidGatewayWalkthrough } from "@/app/components/marketing/android-gateway-walkthrough";
 import { Reveal } from "@/app/components/marketing/reveal";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_SHORT_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-    title: { absolute: "Relay Campaigns | SMS Campaign Management for SMS Gate" },
+    title: { absolute: SITE_TITLE },
     description: SITE_DESCRIPTION,
     keywords: [
         "SMS Gate campaign dashboard",
         "SMS Gateway for Android dashboard",
+        "free SMS campaign manager",
+        "Android SMS campaign software",
+        "send bulk SMS using Android phone",
         "SMS campaign management",
         "SMS scheduling software",
         "SMS audience segmentation",
@@ -37,7 +40,7 @@ export const metadata: Metadata = {
         canonical: "/",
     },
     openGraph: {
-        title: "Relay Campaigns | SMS Campaign Management for SMS Gate",
+        title: SITE_TITLE,
         description: SITE_DESCRIPTION,
         url: SITE_URL,
         siteName: SITE_NAME,
@@ -46,7 +49,7 @@ export const metadata: Metadata = {
     },
     twitter: {
         card: "summary_large_image",
-        title: "Relay Campaigns | SMS Campaign Management for SMS Gate",
+        title: SITE_TITLE,
         description: SITE_DESCRIPTION,
     },
 };
@@ -82,6 +85,11 @@ const metrics = [
 
 const faqs = [
     {
+        question: "Is Relay Campaigns free to use?",
+        answer:
+            "Yes. Relay Campaigns is free to use during the project preview. Messages are sent by your Android phone through your mobile plan, so carrier charges may still apply.",
+    },
+    {
         question: "What is Relay Campaigns built for?",
         answer:
             "Relay Campaigns is an independent project exploring a team operations layer for SMS Gate: contacts, audience segments, templates, campaign scheduling, workspaces, and outbound delivery reporting.",
@@ -110,6 +118,7 @@ const structuredData = {
             "@type": "WebSite",
             "@id": `${SITE_URL}/#website`,
             name: SITE_NAME,
+            alternateName: [SITE_SHORT_NAME, new URL(SITE_URL).hostname],
             url: SITE_URL,
             description: SITE_DESCRIPTION,
         },
@@ -121,8 +130,14 @@ const structuredData = {
             applicationSubCategory: "SMS campaign management",
             operatingSystem: "Web",
             url: SITE_URL,
+            isAccessibleForFree: true,
             description:
-                "A project dashboard for contact imports, audience segments, reusable templates, SMS campaign scheduling, SMS Gate configuration, and outbound delivery reporting.",
+                "A free SMS campaign manager for importing contacts, creating audience segments and templates, scheduling messages through an Android phone, and tracking delivery with SMS Gate.",
+            offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "USD",
+            },
             softwareRequirements:
                 "SMS Gate cloud access and an Android device running SMS Gateway for Android",
             featureList: [
@@ -196,19 +211,19 @@ export default function Home() {
                 <div className="relative z-10 mx-auto grid min-h-[calc(88svh-80px)] max-w-7xl items-center gap-10 px-4 pb-14 pt-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,500px)] lg:px-8 xl:grid-cols-[minmax(0,1fr)_minmax(480px,560px)]">
                     <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <Badge className="mb-6 border-emerald-200/30 bg-emerald-300/[0.10] text-emerald-100">
-                            Project preview · Built on SMS Gate
+                            Free project preview · Built on SMS Gate
                         </Badge>
                         <h1 className="max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">
-                            Send the right text. Track every delivery.
+                            Free SMS campaigns using your Android phone.
                         </h1>
                         <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-                            Relay Campaigns provides a team-friendly campaign layer for SMS Gate: import contacts,
-                            build focused audiences, schedule outbound messages, and monitor delivery results.
+                            Import contacts, build focused audiences, schedule messages, and track delivery with a
+                            free, team-friendly campaign manager powered by SMS Gate.
                         </p>
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                             <Button asChild size="lg" className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
                                 <Link href="/register">
-                                    Create account <ArrowRight className="size-4" />
+                                    Create free account <ArrowRight className="size-4" />
                                 </Link>
                             </Button>
                             <Button asChild size="lg" variant="outline" className="border-white/20 bg-white/[0.08] text-white hover:bg-white/[0.14] hover:text-white">
@@ -312,18 +327,16 @@ export default function Home() {
             <section id="overview" className="scroll-mt-4 border-y bg-card px-4 py-20 sm:px-6 lg:px-8">
                 <div className="mx-auto max-w-7xl">
                     <Reveal className="mx-auto max-w-3xl text-center">
-                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Product overview</p>
+                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">How the gateway works</p>
                         <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                            From SMS Gate setup to delivery reporting in four steps.
+                            See every message move from your dashboard to an Android phone.
                         </h2>
                         <p className="mt-4 text-base leading-7 text-muted-foreground">
-                            Select a step to preview the workflow. This is the same order a new workspace follows
-                            before sending its first campaign through SMS Gate.
+                            This guided walkthrough follows the complete sending path: your Relay campaign, SMS Gate
+                            cloud, the Android gateway, and the delivery updates your team sees afterwards.
                         </p>
                     </Reveal>
-                    <Reveal className="mt-10" delay={120}>
-                        <ProductOverview />
-                    </Reveal>
+                    <AndroidGatewayWalkthrough />
                 </div>
             </section>
 
